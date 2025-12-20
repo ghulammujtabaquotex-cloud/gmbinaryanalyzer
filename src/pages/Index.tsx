@@ -100,7 +100,10 @@ const Index = () => {
         description: `You have ${newRemaining} analyses remaining today.`,
       });
     } catch (error) {
-      console.error("Analysis error:", error);
+      // Log only in development
+      if (import.meta.env.DEV) {
+        console.error("Analysis error:", error);
+      }
       toast({
         title: "Analysis failed",
         description: error instanceof Error ? error.message : "Could not analyze the chart. Please try again.",
