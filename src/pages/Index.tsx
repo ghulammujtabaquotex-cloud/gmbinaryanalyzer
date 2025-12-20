@@ -54,14 +54,23 @@ const Index = () => {
     if (!canAnalyze) {
       toast({
         title: "Daily limit reached",
-        description: "You've used all 50 analyses for today. Try again tomorrow!",
+        description: "You've used all 300 analysis requests for today. Try again tomorrow!",
         variant: "destructive",
       });
       return;
     }
 
+    // Prevent double-click
+    if (isAnalyzing) {
+      return;
+    }
+
     setIsAnalyzing(true);
     setAnalysisResult(null);
+
+    // Create abort controller for timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
 
     try {
       // Check and increment usage before making the request
@@ -70,7 +79,7 @@ const Index = () => {
       if (!allowed) {
         toast({
           title: "Daily limit reached",
-          description: "You've used all 50 analyses for today. Try again tomorrow!",
+          description: "You've used all 300 analysis requests for today. Try again tomorrow!",
           variant: "destructive",
         });
         return;
@@ -81,6 +90,8 @@ const Index = () => {
       const { data, error } = await supabase.functions.invoke("analyze-chart", {
         body: { imageBase64 },
       });
+
+      clearTimeout(timeoutId);
 
       if (error) {
         throw error;
@@ -97,16 +108,25 @@ const Index = () => {
       // Show remaining usage toast
       toast({
         title: "Analysis complete!",
-        description: `You have ${newRemaining} analyses remaining today.`,
+        description: `You have ${newRemaining} analysis requests remaining today.`,
       });
     } catch (error) {
+      clearTimeout(timeoutId);
+      
       // Log only in development
       if (import.meta.env.DEV) {
         console.error("Analysis error:", error);
       }
+      
+      const errorMessage = error instanceof Error 
+        ? (error.name === 'AbortError' 
+          ? "Analysis timed out. Please try again." 
+          : error.message)
+        : "Could not analyze the chart. Please try again.";
+      
       toast({
         title: "Analysis failed",
-        description: error instanceof Error ? error.message : "Could not analyze the chart. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {

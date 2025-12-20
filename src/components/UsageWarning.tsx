@@ -23,7 +23,7 @@ export const UsageWarning = ({ remaining, dailyLimit }: UsageWarningProps) => {
     <div className={`flex items-center justify-center gap-2 px-4 py-2 rounded-lg ${bgColor} border text-sm`}>
       {remaining <= 10 && <AlertTriangle className={`w-4 h-4 ${textColor}`} />}
       <span className={textColor}>
-        <span className="font-semibold">{remaining}</span> of {dailyLimit} analyses remaining today
+        <span className="font-semibold">{remaining}</span> of {dailyLimit} analysis requests remaining today
       </span>
       <div className="w-24 h-2 bg-background/50 rounded-full overflow-hidden ml-2">
         <div 
