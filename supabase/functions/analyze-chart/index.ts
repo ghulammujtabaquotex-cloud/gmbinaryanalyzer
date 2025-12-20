@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 
-const DAILY_LIMIT = 50;
+const DAILY_LIMIT = 300;
 
 // Allowed origins for CORS - restrict to specific known domains only
 const getAllowedOrigin = (requestOrigin: string | null): string => {
@@ -224,7 +224,7 @@ serve(async (req) => {
     const { allowed, remaining } = await checkRateLimit(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, userId);
     if (!allowed) {
       return new Response(
-        JSON.stringify({ error: "Daily limit of 50 analyses reached. Please try again tomorrow." }),
+        JSON.stringify({ error: "Daily limit of 300 analysis requests reached. Please try again tomorrow." }),
         { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
