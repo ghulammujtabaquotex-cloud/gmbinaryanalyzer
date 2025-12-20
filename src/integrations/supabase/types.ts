@@ -46,7 +46,13 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      atomic_increment_usage: {
+        Args: { p_daily_limit: number; p_usage_date: string; p_user_id: string }
+        Returns: {
+          allowed: boolean
+          remaining: number
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never

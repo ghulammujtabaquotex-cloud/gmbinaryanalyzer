@@ -58,6 +58,44 @@ IMPORTANT:
 - Be specific about the price action patterns you observe
 - If you cannot clearly identify the chart elements, default to NEUTRAL`;
 
+// Image magic bytes for validation
+const IMAGE_SIGNATURES: Record<string, number[][]> = {
+  png: [[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]],
+  jpeg: [[0xFF, 0xD8, 0xFF]],
+  gif: [[0x47, 0x49, 0x46, 0x38, 0x37, 0x61], [0x47, 0x49, 0x46, 0x38, 0x39, 0x61]],
+  webp: [[0x52, 0x49, 0x46, 0x46]], // RIFF header (WebP starts with RIFF....WEBP)
+};
+
+// Validate image content by checking magic bytes
+const validateImageMagicBytes = (base64Data: string): boolean => {
+  try {
+    const binaryString = atob(base64Data);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length && i < 12; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+
+    for (const [format, signatures] of Object.entries(IMAGE_SIGNATURES)) {
+      for (const sig of signatures) {
+        if (sig.every((byte, i) => bytes[i] === byte)) {
+          // Additional check for WebP: verify WEBP marker at offset 8
+          if (format === 'webp') {
+            const webpMarker = [0x57, 0x45, 0x42, 0x50]; // "WEBP"
+            if (webpMarker.every((byte, i) => bytes[i + 8] === byte)) {
+              return true;
+            }
+          } else {
+            return true;
+          }
+        }
+      }
+    }
+    return false;
+  } catch {
+    return false;
+  }
+};
+
 // Input validation
 const validateImageInput = (imageBase64: string): { valid: boolean; error?: string } => {
   if (!imageBase64 || typeof imageBase64 !== "string") {
@@ -74,10 +112,16 @@ const validateImageInput = (imageBase64: string): { valid: boolean; error?: stri
     return { valid: false, error: "Invalid image format. Please upload a PNG, JPEG, GIF, or WebP image." };
   }
 
+  // Extract base64 data and validate magic bytes
+  const base64Data = imageBase64.split(',')[1];
+  if (!base64Data || !validateImageMagicBytes(base64Data)) {
+    return { valid: false, error: "Invalid image content. Please upload a valid image file." };
+  }
+
   return { valid: true };
 };
 
-// Server-side rate limiting check
+// Server-side rate limiting check using atomic database function
 const checkRateLimit = async (
   supabaseUrl: string,
   serviceRoleKey: string,
@@ -85,54 +129,48 @@ const checkRateLimit = async (
 ): Promise<{ allowed: boolean; remaining: number }> => {
   const today = new Date().toISOString().split("T")[0];
 
-  // Use fetch directly to avoid type issues with dynamic Supabase client
   const headers = {
     "apikey": serviceRoleKey,
     "Authorization": `Bearer ${serviceRoleKey}`,
     "Content-Type": "application/json",
   };
 
-  // Check current usage
-  const checkResponse = await fetch(
-    `${supabaseUrl}/rest/v1/analysis_usage?user_id=eq.${userId}&usage_date=eq.${today}&select=id,request_count`,
-    { headers }
-  );
-
-  if (!checkResponse.ok) {
-    console.error("Rate limit check failed");
-    return { allowed: true, remaining: DAILY_LIMIT };
-  }
-
-  const usageData = await checkResponse.json();
-  const usage = usageData[0];
-  const currentCount = usage?.request_count ?? 0;
-
-  if (currentCount >= DAILY_LIMIT) {
-    return { allowed: false, remaining: 0 };
-  }
-
-  // Increment usage
-  if (usage) {
-    await fetch(
-      `${supabaseUrl}/rest/v1/analysis_usage?id=eq.${usage.id}`,
-      {
-        method: "PATCH",
-        headers,
-        body: JSON.stringify({ request_count: currentCount + 1 }),
-      }
-    );
-  } else {
-    await fetch(
-      `${supabaseUrl}/rest/v1/analysis_usage`,
+  try {
+    // Use atomic RPC function to prevent race conditions
+    const rpcResponse = await fetch(
+      `${supabaseUrl}/rest/v1/rpc/atomic_increment_usage`,
       {
         method: "POST",
-        headers: { ...headers, "Prefer": "return=minimal" },
-        body: JSON.stringify({ user_id: userId, usage_date: today, request_count: 1 }),
+        headers,
+        body: JSON.stringify({
+          p_user_id: userId,
+          p_usage_date: today,
+          p_daily_limit: DAILY_LIMIT,
+        }),
       }
     );
-  }
 
-  return { allowed: true, remaining: DAILY_LIMIT - currentCount - 1 };
+    if (!rpcResponse.ok) {
+      console.error("Atomic rate limit RPC failed, status:", rpcResponse.status);
+      // Fallback: deny if atomic check fails for safety
+      return { allowed: false, remaining: 0 };
+    }
+
+    const result = await rpcResponse.json();
+    if (result && result.length > 0) {
+      return { 
+        allowed: result[0].allowed, 
+        remaining: result[0].remaining 
+      };
+    }
+
+    // If no result, deny for safety
+    return { allowed: false, remaining: 0 };
+  } catch (err) {
+    console.error("Rate limit check error");
+    // Fail closed: deny access if rate limiting fails
+    return { allowed: false, remaining: 0 };
+  }
 };
 
 serve(async (req) => {
