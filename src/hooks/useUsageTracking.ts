@@ -26,11 +26,19 @@ export const useUsageTracking = () => {
         .eq("usage_date", today)
         .maybeSingle();
 
-      if (error) throw error;
+      if (error) {
+        // Log only in development
+        if (import.meta.env.DEV) {
+          console.error("Error fetching usage:", error);
+        }
+      }
       
       setUsageCount(data?.request_count ?? 0);
     } catch (error) {
-      console.error("Error fetching usage:", error);
+      // Log only in development
+      if (import.meta.env.DEV) {
+        console.error("Error fetching usage:", error);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -86,7 +94,10 @@ export const useUsageTracking = () => {
       
       return { allowed: true, remaining: DAILY_LIMIT - newCount };
     } catch (error) {
-      console.error("Error incrementing usage:", error);
+      // Log only in development
+      if (import.meta.env.DEV) {
+        console.error("Error incrementing usage:", error);
+      }
       return { allowed: false, remaining: 0 };
     }
   };

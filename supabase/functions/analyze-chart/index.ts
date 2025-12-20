@@ -1,24 +1,22 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 
-// Allowed origins for CORS - restrict to known domains
+const DAILY_LIMIT = 50;
+
+// Allowed origins for CORS - restrict to specific known domains only
 const getAllowedOrigin = (requestOrigin: string | null): string => {
   const allowedOrigins = [
     "https://rbqafiykevtbgztczizr.lovableproject.com",
     "https://gmbinarypro.lovable.app",
-    "https://lovable.dev",
   ];
   
-  // Allow localhost for development
+  // Allow localhost for development only
   if (requestOrigin && (requestOrigin.includes("localhost") || requestOrigin.includes("127.0.0.1"))) {
     return requestOrigin;
   }
   
-  // Allow any lovableproject.com or lovable.app subdomain
-  if (requestOrigin && (requestOrigin.endsWith(".lovableproject.com") || requestOrigin.endsWith(".lovable.app"))) {
-    return requestOrigin;
-  }
-  
-  if (requestOrigin && allowedOrigins.some(origin => requestOrigin.startsWith(origin))) {
+  // Only allow specific origins, not wildcard subdomains
+  if (requestOrigin && allowedOrigins.includes(requestOrigin)) {
     return requestOrigin;
   }
   
@@ -62,24 +60,79 @@ IMPORTANT:
 
 // Input validation
 const validateImageInput = (imageBase64: string): { valid: boolean; error?: string } => {
-  // Check if input exists
   if (!imageBase64 || typeof imageBase64 !== "string") {
     return { valid: false, error: "No image provided" };
   }
 
-  // Max size: 5MB in base64 (base64 increases size by ~33%)
   const maxBase64Size = 7 * 1024 * 1024;
   if (imageBase64.length > maxBase64Size) {
     return { valid: false, error: "Image is too large. Please use an image under 5MB." };
   }
 
-  // Validate base64 data URI format
   const dataUriPattern = /^data:image\/(png|jpeg|jpg|gif|webp);base64,/i;
   if (!dataUriPattern.test(imageBase64)) {
     return { valid: false, error: "Invalid image format. Please upload a PNG, JPEG, GIF, or WebP image." };
   }
 
   return { valid: true };
+};
+
+// Server-side rate limiting check
+const checkRateLimit = async (
+  supabaseUrl: string,
+  serviceRoleKey: string,
+  userId: string
+): Promise<{ allowed: boolean; remaining: number }> => {
+  const today = new Date().toISOString().split("T")[0];
+
+  // Use fetch directly to avoid type issues with dynamic Supabase client
+  const headers = {
+    "apikey": serviceRoleKey,
+    "Authorization": `Bearer ${serviceRoleKey}`,
+    "Content-Type": "application/json",
+  };
+
+  // Check current usage
+  const checkResponse = await fetch(
+    `${supabaseUrl}/rest/v1/analysis_usage?user_id=eq.${userId}&usage_date=eq.${today}&select=id,request_count`,
+    { headers }
+  );
+
+  if (!checkResponse.ok) {
+    console.error("Rate limit check failed");
+    return { allowed: true, remaining: DAILY_LIMIT };
+  }
+
+  const usageData = await checkResponse.json();
+  const usage = usageData[0];
+  const currentCount = usage?.request_count ?? 0;
+
+  if (currentCount >= DAILY_LIMIT) {
+    return { allowed: false, remaining: 0 };
+  }
+
+  // Increment usage
+  if (usage) {
+    await fetch(
+      `${supabaseUrl}/rest/v1/analysis_usage?id=eq.${usage.id}`,
+      {
+        method: "PATCH",
+        headers,
+        body: JSON.stringify({ request_count: currentCount + 1 }),
+      }
+    );
+  } else {
+    await fetch(
+      `${supabaseUrl}/rest/v1/analysis_usage`,
+      {
+        method: "POST",
+        headers: { ...headers, "Prefer": "return=minimal" },
+        body: JSON.stringify({ user_id: userId, usage_date: today, request_count: 1 }),
+      }
+    );
+  }
+
+  return { allowed: true, remaining: DAILY_LIMIT - currentCount - 1 };
 };
 
 serve(async (req) => {
@@ -94,6 +147,50 @@ serve(async (req) => {
   }
 
   try {
+    // Get user from JWT
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: "Authentication required" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+      console.error("ERR_CONFIG: Missing Supabase config");
+      return new Response(
+        JSON.stringify({ error: "Service temporarily unavailable. Please try again later." }),
+        { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+    // Verify JWT and get user
+    const token = authHeader.replace("Bearer ", "");
+    const { data: userData, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !userData.user) {
+      return new Response(
+        JSON.stringify({ error: "Invalid or expired session. Please sign in again." }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const userId = userData.user.id;
+
+    // Server-side rate limit check
+    const { allowed, remaining } = await checkRateLimit(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, userId);
+    if (!allowed) {
+      return new Response(
+        JSON.stringify({ error: "Daily limit of 50 analyses reached. Please try again tomorrow." }),
+        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const { imageBase64 } = await req.json();
 
     // Validate input
@@ -114,7 +211,7 @@ serve(async (req) => {
       );
     }
 
-    console.log("Processing analysis request");
+    console.log("Processing analysis request for user:", userId.slice(0, 8));
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -176,17 +273,15 @@ serve(async (req) => {
       );
     }
 
-    console.log("Analysis completed");
+    console.log("Analysis completed, remaining:", remaining);
 
     // Parse the JSON response from AI
     let analysis;
     try {
-      // Remove any markdown code blocks if present
       const cleanContent = content.replace(/```json\n?|\n?```/g, "").trim();
       analysis = JSON.parse(cleanContent);
     } catch {
       console.error("ERR_PARSE");
-      // Fallback response if parsing fails
       analysis = {
         pair: "Unknown",
         trend: "Range",
@@ -197,7 +292,7 @@ serve(async (req) => {
       };
     }
 
-    return new Response(JSON.stringify(analysis), {
+    return new Response(JSON.stringify({ ...analysis, remaining }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch {
