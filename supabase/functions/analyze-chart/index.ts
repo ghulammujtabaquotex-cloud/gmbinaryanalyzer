@@ -1,8 +1,22 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+// Allowed origins for CORS - restrict to known domains
+const getAllowedOrigin = (requestOrigin: string | null): string => {
+  const allowedOrigins = [
+    "https://rbqafiykevtbgztczizr.lovableproject.com",
+    "https://lovable.dev",
+  ];
+  
+  // Allow localhost for development
+  if (requestOrigin && (requestOrigin.includes("localhost") || requestOrigin.includes("127.0.0.1"))) {
+    return requestOrigin;
+  }
+  
+  if (requestOrigin && allowedOrigins.some(origin => requestOrigin.startsWith(origin))) {
+    return requestOrigin;
+  }
+  
+  return allowedOrigins[0];
 };
 
 const systemPrompt = `You are an expert binary options trading chart analyst. You analyze trading chart screenshots and provide price action analysis.
@@ -40,7 +54,35 @@ IMPORTANT:
 - Be specific about the price action patterns you observe
 - If you cannot clearly identify the chart elements, default to NEUTRAL`;
 
+// Input validation
+const validateImageInput = (imageBase64: string): { valid: boolean; error?: string } => {
+  // Check if input exists
+  if (!imageBase64 || typeof imageBase64 !== "string") {
+    return { valid: false, error: "No image provided" };
+  }
+
+  // Max size: 5MB in base64 (base64 increases size by ~33%)
+  const maxBase64Size = 7 * 1024 * 1024;
+  if (imageBase64.length > maxBase64Size) {
+    return { valid: false, error: "Image is too large. Please use an image under 5MB." };
+  }
+
+  // Validate base64 data URI format
+  const dataUriPattern = /^data:image\/(png|jpeg|jpg|gif|webp);base64,/i;
+  if (!dataUriPattern.test(imageBase64)) {
+    return { valid: false, error: "Invalid image format. Please upload a PNG, JPEG, GIF, or WebP image." };
+  }
+
+  return { valid: true };
+};
+
 serve(async (req) => {
+  const origin = req.headers.get("origin");
+  const corsHeaders = {
+    "Access-Control-Allow-Origin": getAllowedOrigin(origin),
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  };
+
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -48,13 +90,22 @@ serve(async (req) => {
   try {
     const { imageBase64 } = await req.json();
 
-    if (!imageBase64) {
-      throw new Error("No image provided");
+    // Validate input
+    const validation = validateImageInput(imageBase64);
+    if (!validation.valid) {
+      return new Response(
+        JSON.stringify({ error: validation.error }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
+      console.error("Configuration error: LOVABLE_API_KEY is not set");
+      return new Response(
+        JSON.stringify({ error: "Service temporarily unavailable. Please try again later." }),
+        { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     console.log("Analyzing chart image...");
@@ -97,23 +148,30 @@ serve(async (req) => {
       }
       if (response.status === 402) {
         return new Response(
-          JSON.stringify({ error: "Usage limit reached. Please add credits to continue." }),
+          JSON.stringify({ error: "Usage limit reached. Please try again later." }),
           { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
       const errorText = await response.text();
       console.error("AI gateway error:", response.status, errorText);
-      throw new Error(`AI gateway error: ${response.status}`);
+      return new Response(
+        JSON.stringify({ error: "Analysis failed. Please try again." }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content;
 
     if (!content) {
-      throw new Error("No response content from AI");
+      console.error("No response content from AI");
+      return new Response(
+        JSON.stringify({ error: "Analysis failed. Please try again." }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
-    console.log("AI response:", content);
+    console.log("AI analysis completed successfully");
 
     // Parse the JSON response from AI
     let analysis;
@@ -122,7 +180,7 @@ serve(async (req) => {
       const cleanContent = content.replace(/```json\n?|\n?```/g, "").trim();
       analysis = JSON.parse(cleanContent);
     } catch (parseError) {
-      console.error("Failed to parse AI response:", content);
+      console.error("Failed to parse AI response:", parseError);
       // Fallback response if parsing fails
       analysis = {
         pair: "Unknown",
@@ -140,7 +198,7 @@ serve(async (req) => {
   } catch (error) {
     console.error("analyze-chart error:", error);
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
+      JSON.stringify({ error: "Analysis failed. Please try again." }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
