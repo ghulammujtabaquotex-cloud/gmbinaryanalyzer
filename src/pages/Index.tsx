@@ -1,18 +1,31 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { ChartUploader } from "@/components/ChartUploader";
 import { AnalysisResults, type AnalysisData } from "@/components/AnalysisResults";
 import { LoadingAnalysis } from "@/components/LoadingAnalysis";
+import { UsageWarning } from "@/components/UsageWarning";
 import { Button } from "@/components/ui/button";
-import { Activity, BarChart3, Zap } from "lucide-react";
+import { Activity, BarChart3, Zap, LogOut } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { sanitizeAnalysisData } from "@/lib/validateAnalysis";
+import { useAuth } from "@/hooks/useAuth";
+import { useUsageTracking } from "@/hooks/useUsageTracking";
 
 const Index = () => {
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<AnalysisData | null>(null);
   const { toast } = useToast();
+  const navigate = useNavigate();
+  const { user, isLoading: authLoading, signOut } = useAuth();
+  const { remaining, dailyLimit, incrementUsage, canAnalyze, isLoading: usageLoading } = useUsageTracking();
+
+  useEffect(() => {
+    if (!authLoading && !user) {
+      navigate("/auth");
+    }
+  }, [user, authLoading, navigate]);
 
   const fileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -21,6 +34,11 @@ const Index = () => {
       reader.onload = () => resolve(reader.result as string);
       reader.onerror = reject;
     });
+  };
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate("/auth");
   };
 
   const handleAnalyze = async () => {
@@ -33,10 +51,31 @@ const Index = () => {
       return;
     }
 
+    if (!canAnalyze) {
+      toast({
+        title: "Daily limit reached",
+        description: "You've used all 50 analyses for today. Try again tomorrow!",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsAnalyzing(true);
     setAnalysisResult(null);
 
     try {
+      // Check and increment usage before making the request
+      const { allowed, remaining: newRemaining } = await incrementUsage();
+      
+      if (!allowed) {
+        toast({
+          title: "Daily limit reached",
+          description: "You've used all 50 analyses for today. Try again tomorrow!",
+          variant: "destructive",
+        });
+        return;
+      }
+
       const imageBase64 = await fileToBase64(selectedImage);
 
       const { data, error } = await supabase.functions.invoke("analyze-chart", {
@@ -54,6 +93,12 @@ const Index = () => {
       // Validate and sanitize AI response data
       const sanitizedData = sanitizeAnalysisData(data);
       setAnalysisResult(sanitizedData);
+
+      // Show remaining usage toast
+      toast({
+        title: "Analysis complete!",
+        description: `You have ${newRemaining} analyses remaining today.`,
+      });
     } catch (error) {
       console.error("Analysis error:", error);
       toast({
@@ -66,18 +111,46 @@ const Index = () => {
     }
   };
 
+  if (authLoading || usageLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="animate-pulse text-muted-foreground">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return null;
+  }
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="border-b border-border/50 backdrop-blur-sm sticky top-0 z-50 bg-background/80">
         <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-primary/10 shadow-[0_0_30px_-5px_hsl(var(--primary)/0.4)]">
-              <BarChart3 className="w-6 h-6 text-primary" />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-primary/10 shadow-[0_0_30px_-5px_hsl(var(--primary)/0.4)]">
+                <BarChart3 className="w-6 h-6 text-primary" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-foreground">GM BINARY PRO</h1>
+                <p className="text-xs text-muted-foreground">Binary Trading Chart Analyzer</p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-xl font-bold text-foreground">GM BINARY PRO</h1>
-              <p className="text-xs text-muted-foreground">Binary Trading Chart Analyzer</p>
+            <div className="flex items-center gap-4">
+              <span className="text-xs text-muted-foreground hidden sm:block">
+                {user?.email}
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleSignOut}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <LogOut className="w-4 h-4 mr-2" />
+                Sign Out
+              </Button>
             </div>
           </div>
         </div>
@@ -98,6 +171,11 @@ const Index = () => {
             <p className="text-muted-foreground max-w-xl mx-auto">
               Upload your trading chart screenshot and get instant price action analysis with support, resistance, and next candle bias.
             </p>
+          </div>
+
+          {/* Usage Warning */}
+          <div className="flex justify-center">
+            <UsageWarning remaining={remaining} dailyLimit={dailyLimit} />
           </div>
 
           {/* Upload Section */}
