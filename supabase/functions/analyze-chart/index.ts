@@ -4,11 +4,17 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 const getAllowedOrigin = (requestOrigin: string | null): string => {
   const allowedOrigins = [
     "https://rbqafiykevtbgztczizr.lovableproject.com",
+    "https://gmbinarypro.lovable.app",
     "https://lovable.dev",
   ];
   
   // Allow localhost for development
   if (requestOrigin && (requestOrigin.includes("localhost") || requestOrigin.includes("127.0.0.1"))) {
+    return requestOrigin;
+  }
+  
+  // Allow any lovableproject.com or lovable.app subdomain
+  if (requestOrigin && (requestOrigin.endsWith(".lovableproject.com") || requestOrigin.endsWith(".lovable.app"))) {
     return requestOrigin;
   }
   
