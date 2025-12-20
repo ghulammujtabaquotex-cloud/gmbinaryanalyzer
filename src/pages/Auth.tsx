@@ -5,14 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { BarChart3, Mail, Lock, LogIn, UserPlus } from "lucide-react";
+import { BarChart3, Mail, Lock, LogIn } from "lucide-react";
 import { z } from "zod";
 
 const emailSchema = z.string().email("Please enter a valid email address");
 const passwordSchema = z.string().min(6, "Password must be at least 6 characters");
 
 const Auth = () => {
-  const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -61,47 +60,25 @@ const Auth = () => {
     setIsLoading(true);
 
     try {
-      if (isLogin) {
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-        
-        if (error) {
-          if (error.message.includes("Invalid login credentials")) {
-            throw new Error("Invalid email or password. Please try again.");
-          }
-          throw error;
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      
+      if (error) {
+        if (error.message.includes("Invalid login credentials")) {
+          throw new Error("Invalid email or password. Please try again.");
         }
-        
-        toast({
-          title: "Welcome back!",
-          description: "You have been logged in successfully.",
-        });
-      } else {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            emailRedirectTo: `${window.location.origin}/`,
-          },
-        });
-        
-        if (error) {
-          if (error.message.includes("User already registered")) {
-            throw new Error("This email is already registered. Please login instead.");
-          }
-          throw error;
-        }
-        
-        toast({
-          title: "Account created!",
-          description: "You can now start analyzing charts.",
-        });
+        throw error;
       }
+      
+      toast({
+        title: "Welcome back!",
+        description: "You have been logged in successfully.",
+      });
     } catch (error) {
       toast({
-        title: isLogin ? "Login failed" : "Signup failed",
+        title: "Login failed",
         description: error instanceof Error ? error.message : "An error occurred. Please try again.",
         variant: "destructive",
       });
@@ -129,14 +106,8 @@ const Auth = () => {
       <main className="flex-1 flex items-center justify-center px-4 py-12">
         <div className="w-full max-w-md space-y-8">
           <div className="text-center space-y-2">
-            <h2 className="text-2xl font-bold text-foreground">
-              {isLogin ? "Welcome Back" : "Create Account"}
-            </h2>
-            <p className="text-muted-foreground">
-              {isLogin
-                ? "Sign in to access the chart analyzer"
-                : "Sign up to start analyzing charts"}
-            </p>
+            <h2 className="text-2xl font-bold text-foreground">Welcome Back</h2>
+            <p className="text-muted-foreground">Sign in to access the chart analyzer</p>
           </div>
 
           <div className="glass-card p-6 rounded-xl gradient-border">
@@ -188,38 +159,18 @@ const Auth = () => {
               >
                 {isLoading ? (
                   "Please wait..."
-                ) : isLogin ? (
+                ) : (
                   <>
                     <LogIn className="w-4 h-4 mr-2" />
                     Sign In
                   </>
-                ) : (
-                  <>
-                    <UserPlus className="w-4 h-4 mr-2" />
-                    Create Account
-                  </>
                 )}
               </Button>
             </form>
-
-            <div className="mt-6 text-center">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsLogin(!isLogin);
-                  setErrors({});
-                }}
-                className="text-sm text-muted-foreground hover:text-primary transition-colors"
-              >
-                {isLogin
-                  ? "Don't have an account? Sign up"
-                  : "Already have an account? Sign in"}
-              </button>
-            </div>
           </div>
 
           <p className="text-center text-xs text-muted-foreground">
-            Free tier: 50 chart analyses per day
+            Access restricted to authorized users only
           </p>
         </div>
       </main>
