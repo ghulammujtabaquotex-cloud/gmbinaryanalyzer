@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Activity, BarChart3, Zap } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { sanitizeAnalysisData } from "@/lib/validateAnalysis";
 
 const Index = () => {
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
@@ -50,7 +51,9 @@ const Index = () => {
         throw new Error(data.error);
       }
 
-      setAnalysisResult(data as AnalysisData);
+      // Validate and sanitize AI response data
+      const sanitizedData = sanitizeAnalysisData(data);
+      setAnalysisResult(sanitizedData);
     } catch (error) {
       console.error("Analysis error:", error);
       toast({

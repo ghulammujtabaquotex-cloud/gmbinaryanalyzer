@@ -101,14 +101,14 @@ serve(async (req) => {
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
-      console.error("Configuration error: LOVABLE_API_KEY is not set");
+      console.error("ERR_CONFIG: Missing API key");
       return new Response(
         JSON.stringify({ error: "Service temporarily unavailable. Please try again later." }),
         { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    console.log("Analyzing chart image...");
+    console.log("Processing analysis request");
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -152,8 +152,7 @@ serve(async (req) => {
           { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      const errorText = await response.text();
-      console.error("AI gateway error:", response.status, errorText);
+      console.error("ERR_GATEWAY:", response.status);
       return new Response(
         JSON.stringify({ error: "Analysis failed. Please try again." }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -164,14 +163,14 @@ serve(async (req) => {
     const content = data.choices?.[0]?.message?.content;
 
     if (!content) {
-      console.error("No response content from AI");
+      console.error("ERR_EMPTY_RESPONSE");
       return new Response(
         JSON.stringify({ error: "Analysis failed. Please try again." }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    console.log("AI analysis completed successfully");
+    console.log("Analysis completed");
 
     // Parse the JSON response from AI
     let analysis;
@@ -179,8 +178,8 @@ serve(async (req) => {
       // Remove any markdown code blocks if present
       const cleanContent = content.replace(/```json\n?|\n?```/g, "").trim();
       analysis = JSON.parse(cleanContent);
-    } catch (parseError) {
-      console.error("Failed to parse AI response:", parseError);
+    } catch {
+      console.error("ERR_PARSE");
       // Fallback response if parsing fails
       analysis = {
         pair: "Unknown",
@@ -195,8 +194,8 @@ serve(async (req) => {
     return new Response(JSON.stringify(analysis), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (error) {
-    console.error("analyze-chart error:", error);
+  } catch {
+    console.error("ERR_UNEXPECTED");
     return new Response(
       JSON.stringify({ error: "Analysis failed. Please try again." }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
