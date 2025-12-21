@@ -72,16 +72,31 @@ const Index = () => {
 
     // Create abort controller for timeout
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
+    const timeoutId = setTimeout(() => {
+      controller.abort();
+      setIsAnalyzing(false);
+      toast({
+        title: "Analysis timed out",
+        description: "The analysis took too long. Please try again.",
+        variant: "destructive",
+      });
+    }, 60000); // 60 second timeout
 
     try {
       const imageBase64 = await fileToBase64(selectedImage);
 
-      const { data, error } = await supabase.functions.invoke("analyze-chart", {
+      const response = await supabase.functions.invoke("analyze-chart", {
         body: { imageBase64 },
       });
-
+      
       clearTimeout(timeoutId);
+      
+      // Check if request was aborted
+      if (controller.signal.aborted) {
+        return;
+      }
+
+      const { data, error } = response;
 
       if (error) {
         throw error;
@@ -263,7 +278,11 @@ const Index = () => {
               <Activity className="w-4 h-4" />
               <span>Step 1: Upload Chart Screenshot</span>
             </div>
-            <ChartUploader onImageSelect={setSelectedImage} selectedImage={selectedImage} />
+            <ChartUploader 
+              onImageSelect={setSelectedImage} 
+              selectedImage={selectedImage} 
+              disabled={isAnalyzing}
+            />
           </section>
 
           {/* Analyze Button - Hidden when pending feedback */}

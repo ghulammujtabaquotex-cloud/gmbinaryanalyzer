@@ -5,9 +5,10 @@ import { cn } from "@/lib/utils";
 interface ChartUploaderProps {
   onImageSelect: (file: File | null) => void;
   selectedImage: File | null;
+  disabled?: boolean;
 }
 
-export function ChartUploader({ onImageSelect, selectedImage }: ChartUploaderProps) {
+export function ChartUploader({ onImageSelect, selectedImage, disabled = false }: ChartUploaderProps) {
   const [isDragOver, setIsDragOver] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
@@ -106,7 +107,13 @@ export function ChartUploader({ onImageSelect, selectedImage }: ChartUploaderPro
             </div>
             <button
               onClick={clearImage}
-              className="p-2 rounded-lg bg-destructive/20 hover:bg-destructive/30 text-destructive transition-colors"
+              disabled={disabled}
+              className={cn(
+                "p-2 rounded-lg transition-colors",
+                disabled 
+                  ? "bg-muted text-muted-foreground cursor-not-allowed" 
+                  : "bg-destructive/20 hover:bg-destructive/30 text-destructive"
+              )}
             >
               <X className="w-4 h-4" />
             </button>
