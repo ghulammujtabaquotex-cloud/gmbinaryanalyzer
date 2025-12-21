@@ -2,24 +2,27 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const DAILY_LIMIT = 5;
 
-// Allowed origins for CORS - restrict to specific known domains only
+// CORS configuration with strict regex validation to prevent subdomain bypass attacks
 const getAllowedOrigin = (requestOrigin: string | null): string => {
-  const allowedOrigins = [
-    "https://rbqafiykevtbgztczizr.lovableproject.com",
-    "https://gmbinarypro.lovable.app",
+  if (!requestOrigin) {
+    return "https://rbqafiykevtbgztczizr.lovableproject.com";
+  }
+  
+  // Strict regex patterns - prevents bypass via subdomains like localhost.evil.com
+  const allowedPatterns = [
+    /^https:\/\/rbqafiykevtbgztczizr\.lovableproject\.com$/,
+    /^https:\/\/gmbinarypro\.lovable\.app$/,
+    /^https?:\/\/(localhost|127\.0\.0\.1)(:\d{1,5})?$/, // Dev only with optional port
   ];
   
-  // Allow localhost for development only
-  if (requestOrigin && (requestOrigin.includes("localhost") || requestOrigin.includes("127.0.0.1"))) {
-    return requestOrigin;
+  for (const pattern of allowedPatterns) {
+    if (pattern.test(requestOrigin)) {
+      return requestOrigin;
+    }
   }
   
-  // Only allow specific origins, not wildcard subdomains
-  if (requestOrigin && allowedOrigins.includes(requestOrigin)) {
-    return requestOrigin;
-  }
-  
-  return allowedOrigins[0];
+  // Reject unknown origins - return default
+  return "https://rbqafiykevtbgztczizr.lovableproject.com";
 };
 
 const systemPrompt = `You are an expert binary options trading chart analyst. You analyze trading chart screenshots and provide STRICT price action analysis.
@@ -138,25 +141,36 @@ const validateImageInput = (imageBase64: string): { valid: boolean; error?: stri
   return { valid: true };
 };
 
-// Get client IP address
+// Secure IP extraction - ONLY trust CF-Connecting-IP to prevent spoofing
 const getClientIP = (req: Request): string => {
-  // Try various headers for real IP behind proxies
+  // ONLY trust CF-Connecting-IP on Supabase Edge Functions
+  // This header is set by Cloudflare and cannot be spoofed by clients
+  // X-Forwarded-For and X-Real-IP can be manipulated by attackers
+  const cfIP = req.headers.get("cf-connecting-ip");
+  if (cfIP) {
+    // Validate it looks like a real IP (IPv4 or IPv6)
+    const ipPattern = /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$|^[0-9a-f:]+$/i;
+    if (ipPattern.test(cfIP)) {
+      return cfIP;
+    }
+  }
+  
+  // For local development only - allow obvious local IPs
   const forwarded = req.headers.get("x-forwarded-for");
   if (forwarded) {
-    return forwarded.split(",")[0].trim();
+    const ip = forwarded.split(",")[0].trim();
+    // Only allow obvious local IPs in dev
+    if (ip === "127.0.0.1" || ip === "::1" || ip.startsWith("192.168.") || ip.startsWith("10.")) {
+      return ip;
+    }
   }
   
-  const realIP = req.headers.get("x-real-ip");
-  if (realIP) {
-    return realIP;
+  // Log potential spoofing attempts
+  const suspiciousXFF = req.headers.get("x-forwarded-for");
+  if (suspiciousXFF && !cfIP) {
+    console.warn("Potential IP spoofing: XFF present without CF-Connecting-IP:", suspiciousXFF.slice(0, 20));
   }
   
-  const cfConnectingIP = req.headers.get("cf-connecting-ip");
-  if (cfConnectingIP) {
-    return cfConnectingIP;
-  }
-  
-  // Fallback
   return "unknown";
 };
 
