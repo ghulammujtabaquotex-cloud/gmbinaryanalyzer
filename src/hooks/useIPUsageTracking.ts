@@ -40,8 +40,16 @@ export const useIPUsageTracking = () => {
   }, []);
 
   useEffect(() => {
-    // Fetch actual usage on mount
-    fetchUsage();
+    // Defer the API call to break the critical render chain
+    // This allows the initial UI to render before making the network request
+    const scheduleRequest = () => {
+      if ('requestIdleCallback' in window) {
+        (window as any).requestIdleCallback(() => fetchUsage(), { timeout: 1000 });
+      } else {
+        setTimeout(fetchUsage, 100);
+      }
+    };
+    scheduleRequest();
   }, [fetchUsage]);
 
   const updateFromResponse = (remaining: number, isLimitReached: boolean = false) => {
