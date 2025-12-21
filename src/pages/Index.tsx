@@ -257,7 +257,41 @@ const Index = () => {
             </div>
           )}
 
-          {/* Results Section - Show analysis results first, then feedback prompt below */}
+          {/* Upload Section - Always visible at its position */}
+          <section className="space-y-4">
+            <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+              <Activity className="w-4 h-4" />
+              <span>Step 1: Upload Chart Screenshot</span>
+            </div>
+            <ChartUploader onImageSelect={setSelectedImage} selectedImage={selectedImage} />
+          </section>
+
+          {/* Analyze Button - Hidden when pending feedback */}
+          {!pendingFeedback && (
+            <div className="flex justify-center">
+              <Button
+                variant="analyze"
+                size="xl"
+                onClick={handleAnalyze}
+                disabled={!selectedImage || isAnalyzing || limitReached}
+                className="w-full sm:w-auto"
+              >
+                {isAnalyzing ? (
+                  <>
+                    <Activity className="w-5 h-5 animate-spin" />
+                    Analyzing...
+                  </>
+                ) : (
+                  <>
+                    <Zap className="w-5 h-5" />
+                    Analyze Chart
+                  </>
+                )}
+              </Button>
+            </div>
+          )}
+
+          {/* Results Section - Shows analysis results */}
           {(isAnalyzing || analysisResult) && (
             <section className="space-y-4">
               <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
@@ -267,62 +301,24 @@ const Index = () => {
               {isAnalyzing ? (
                 <LoadingAnalysis />
               ) : analysisResult ? (
-                <>
-                  <AnalysisResults data={analysisResult} />
-                  
-                  {/* Win/Loss Feedback - Shows BELOW results when user needs to submit result */}
-                  {pendingFeedback && (
-                    <div className="mt-6">
-                      <div className="flex items-center gap-2 text-sm font-medium text-amber-500 mb-4">
-                        <Activity className="w-4 h-4" />
-                        <span>Submit Trade Result</span>
-                      </div>
-                      <FeedbackPrompt
-                        signal={pendingFeedback.signal}
-                        pair={pendingFeedback.pair}
-                        onSubmit={handleSubmitResult}
-                      />
-                    </div>
-                  )}
-                </>
+                <AnalysisResults data={analysisResult} />
               ) : null}
             </section>
           )}
 
-          {/* Upload Section - Hidden when pending feedback */}
-          {!pendingFeedback && (
-            <>
-              <section className="space-y-4">
-                <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                  <Activity className="w-4 h-4" />
-                  <span>Step 1: Upload Chart Screenshot</span>
-                </div>
-                <ChartUploader onImageSelect={setSelectedImage} selectedImage={selectedImage} />
-              </section>
-
-              {/* Analyze Button */}
-              <div className="flex justify-center">
-                <Button
-                  variant="analyze"
-                  size="xl"
-                  onClick={handleAnalyze}
-                  disabled={!selectedImage || isAnalyzing || limitReached}
-                  className="w-full sm:w-auto"
-                >
-                  {isAnalyzing ? (
-                    <>
-                      <Activity className="w-5 h-5 animate-spin" />
-                      Analyzing...
-                    </>
-                  ) : (
-                    <>
-                      <Zap className="w-5 h-5" />
-                      Analyze Chart
-                    </>
-                  )}
-                </Button>
+          {/* Win/Loss Feedback - Shows BELOW results when user needs to submit result */}
+          {pendingFeedback && analysisResult && (
+            <section className="space-y-4">
+              <div className="flex items-center gap-2 text-sm font-medium text-amber-500">
+                <Activity className="w-4 h-4" />
+                <span>Submit Trade Result</span>
               </div>
-            </>
+              <FeedbackPrompt
+                signal={pendingFeedback.signal}
+                pair={pendingFeedback.pair}
+                onSubmit={handleSubmitResult}
+              />
+            </section>
           )}
 
           {/* Info Cards */}
