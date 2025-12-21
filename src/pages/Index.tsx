@@ -271,9 +271,9 @@ const Index = () => {
             {pendingFeedback && analysisResult ? (
               <div 
                 onClick={() => {
-                  const resultsSection = document.getElementById('results-section');
-                  if (resultsSection) {
-                    resultsSection.scrollIntoView({ behavior: 'smooth' });
+                  const feedbackSection = document.getElementById('feedback-section');
+                  if (feedbackSection) {
+                    feedbackSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
                   }
                 }}
                 className="flex flex-col items-center justify-center w-full h-64 rounded-xl cursor-pointer transition-all duration-300 glass-card gradient-border hover:bg-primary/5 hover:border-primary/50"
@@ -341,7 +341,7 @@ const Index = () => {
 
           {/* Win/Loss Feedback - Shows BELOW results when user needs to submit result */}
           {pendingFeedback && analysisResult && (
-            <section className="space-y-4">
+            <section id="feedback-section" className="space-y-4">
               <div className="flex items-center gap-2 text-sm font-medium text-amber-500">
                 <Activity className="w-4 h-4" />
                 <span>Submit Trade Result</span>
