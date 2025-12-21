@@ -147,9 +147,9 @@ serve(async (req) => {
       );
     }
 
-    // Validate result is exactly WIN or LOSS (case insensitive, normalized to lowercase)
-    const normalizedResult = result.toLowerCase();
-    if (!["win", "loss"].includes(normalizedResult)) {
+    // Validate result is exactly WIN or LOSS (normalize to uppercase for DB constraint)
+    const normalizedResult = result.toUpperCase();
+    if (!["WIN", "LOSS"].includes(normalizedResult)) {
       return new Response(
         JSON.stringify({ error: "Invalid result value" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
