@@ -154,21 +154,24 @@ const Index = () => {
     if (!pendingFeedback) return { error: "No pending feedback" };
 
     try {
-      // Save result to database (anonymous - no user_id needed)
-      const { error } = await supabase
-        .from("trade_results")
-        .insert({
+      // Use secure edge function for anonymous result submission
+      // This bypasses RLS and uses server-side rate limiting
+      const { data, error } = await supabase.functions.invoke("submit-result", {
+        body: {
           signal: pendingFeedback.signal,
-          result: result.toLowerCase(),
-          user_id: "00000000-0000-0000-0000-000000000000", // Anonymous placeholder
-        });
+          result: result,
+        },
+      });
 
       if (error) {
-        // Log only in development
         if (import.meta.env.DEV) {
           console.error("Error saving result:", error);
         }
         return { error: "Failed to save result" };
+      }
+
+      if (data?.error) {
+        return { error: data.error };
       }
 
       setPendingFeedback(null);
