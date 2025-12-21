@@ -332,9 +332,9 @@ serve(async (req) => {
 
     console.log("Processing analysis request, remaining before:", remaining);
 
-    // Add timeout for AI gateway request (30 seconds)
+    // Add timeout for AI gateway request (55 seconds)
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000);
+    const timeoutId = setTimeout(() => controller.abort(), 55000);
 
     let response: Response;
     try {
@@ -371,9 +371,9 @@ serve(async (req) => {
     } catch (err) {
       clearTimeout(timeoutId);
       if (err instanceof Error && err.name === 'AbortError') {
-        console.error("Request timeout after 30s");
+        console.error("Request timeout after 55s");
         return new Response(
-          JSON.stringify({ error: "Request timed out. Please try again." }),
+          JSON.stringify({ error: "Analysis timed out. Please try again." }),
           { status: 504, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
