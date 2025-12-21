@@ -257,18 +257,35 @@ const Index = () => {
             </div>
           )}
 
-          {/* Pending Feedback Section - Shows when user needs to submit result */}
-          {pendingFeedback && (
+          {/* Results Section - Show analysis results first, then feedback prompt below */}
+          {(isAnalyzing || analysisResult) && (
             <section className="space-y-4">
-              <div className="flex items-center gap-2 text-sm font-medium text-amber-500">
-                <Activity className="w-4 h-4" />
-                <span>Action Required: Submit Trade Result</span>
+              <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                <BarChart3 className="w-4 h-4" />
+                <span>Analysis Results</span>
               </div>
-              <FeedbackPrompt
-                signal={pendingFeedback.signal}
-                pair={pendingFeedback.pair}
-                onSubmit={handleSubmitResult}
-              />
+              {isAnalyzing ? (
+                <LoadingAnalysis />
+              ) : analysisResult ? (
+                <>
+                  <AnalysisResults data={analysisResult} />
+                  
+                  {/* Win/Loss Feedback - Shows BELOW results when user needs to submit result */}
+                  {pendingFeedback && (
+                    <div className="mt-6">
+                      <div className="flex items-center gap-2 text-sm font-medium text-amber-500 mb-4">
+                        <Activity className="w-4 h-4" />
+                        <span>Submit Trade Result</span>
+                      </div>
+                      <FeedbackPrompt
+                        signal={pendingFeedback.signal}
+                        pair={pendingFeedback.pair}
+                        onSubmit={handleSubmitResult}
+                      />
+                    </div>
+                  )}
+                </>
+              ) : null}
             </section>
           )}
 
@@ -306,21 +323,6 @@ const Index = () => {
                 </Button>
               </div>
             </>
-          )}
-
-          {/* Results Section */}
-          {(isAnalyzing || analysisResult) && !pendingFeedback && (
-            <section className="space-y-4">
-              <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                <BarChart3 className="w-4 h-4" />
-                <span>Analysis Results</span>
-              </div>
-              {isAnalyzing ? (
-                <LoadingAnalysis />
-              ) : analysisResult ? (
-                <AnalysisResults data={analysisResult} />
-              ) : null}
-            </section>
           )}
 
           {/* Info Cards */}
