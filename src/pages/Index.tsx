@@ -4,13 +4,15 @@ import { ChartUploader } from "@/components/ChartUploader";
 import { AnalysisResults, type AnalysisData } from "@/components/AnalysisResults";
 import { LoadingAnalysis } from "@/components/LoadingAnalysis";
 import { UsageWarning } from "@/components/UsageWarning";
+import { FeedbackPrompt } from "@/components/FeedbackPrompt";
 import { Button } from "@/components/ui/button";
-import { Activity, BarChart3, Zap, LogOut } from "lucide-react";
+import { Activity, BarChart3, Zap, LogOut, Trophy } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { sanitizeAnalysisData } from "@/lib/validateAnalysis";
 import { useAuth } from "@/hooks/useAuth";
 import { useUsageTracking } from "@/hooks/useUsageTracking";
+import { usePendingFeedback } from "@/hooks/usePendingFeedback";
 
 const Index = () => {
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
@@ -20,6 +22,7 @@ const Index = () => {
   const navigate = useNavigate();
   const { user, isLoading: authLoading, signOut } = useAuth();
   const { remaining, dailyLimit, incrementUsage, canAnalyze, isLoading: usageLoading } = useUsageTracking();
+  const { pendingFeedback, hasPendingFeedback, createPendingFeedback, submitResult, isLoading: feedbackLoading } = usePendingFeedback();
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -55,6 +58,16 @@ const Index = () => {
       toast({
         title: "Daily limit reached",
         description: "You've used all 300 analysis requests for today. Try again tomorrow!",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check for pending feedback - lock analysis until result submitted
+    if (hasPendingFeedback) {
+      toast({
+        title: "Result pending",
+        description: "Please submit your previous trade result before analyzing a new chart.",
         variant: "destructive",
       });
       return;
@@ -105,6 +118,11 @@ const Index = () => {
       const sanitizedData = sanitizeAnalysisData(data);
       setAnalysisResult(sanitizedData);
 
+      // If CALL or PUT signal, create pending feedback (locks analysis until feedback)
+      if (sanitizedData.signal === "CALL" || sanitizedData.signal === "PUT") {
+        await createPendingFeedback(sanitizedData.signal, sanitizedData.pair);
+      }
+
       // Show remaining usage toast
       toast({
         title: "Analysis complete!",
@@ -134,7 +152,7 @@ const Index = () => {
     }
   };
 
-  if (authLoading || usageLoading) {
+  if (authLoading || usageLoading || feedbackLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="animate-pulse text-muted-foreground">Loading...</div>
@@ -161,7 +179,16 @@ const Index = () => {
                 <p className="text-xs text-muted-foreground">Binary Trading Chart Analyzer</p>
               </div>
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 sm:gap-4">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => navigate("/results")}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <Trophy className="w-4 h-4 mr-1 sm:mr-2" />
+                <span className="hidden sm:inline">Results</span>
+              </Button>
               <span className="text-xs text-muted-foreground hidden sm:block">
                 {user?.email}
               </span>
@@ -171,8 +198,8 @@ const Index = () => {
                 onClick={handleSignOut}
                 className="text-muted-foreground hover:text-foreground"
               >
-                <LogOut className="w-4 h-4 mr-2" />
-                Sign Out
+                <LogOut className="w-4 h-4 mr-1 sm:mr-2" />
+                <span className="hidden sm:inline">Sign Out</span>
               </Button>
             </div>
           </div>
@@ -201,40 +228,59 @@ const Index = () => {
             <UsageWarning remaining={remaining} dailyLimit={dailyLimit} />
           </div>
 
-          {/* Upload Section */}
-          <section className="space-y-4">
-            <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-              <Activity className="w-4 h-4" />
-              <span>Step 1: Upload Chart Screenshot</span>
-            </div>
-            <ChartUploader onImageSelect={setSelectedImage} selectedImage={selectedImage} />
-          </section>
+          {/* Pending Feedback Section - Shows when user needs to submit result */}
+          {hasPendingFeedback && pendingFeedback && (
+            <section className="space-y-4">
+              <div className="flex items-center gap-2 text-sm font-medium text-warning">
+                <Activity className="w-4 h-4" />
+                <span>Action Required: Submit Trade Result</span>
+              </div>
+              <FeedbackPrompt
+                signal={pendingFeedback.signal as "CALL" | "PUT"}
+                pair={pendingFeedback.pair}
+                onSubmit={submitResult}
+              />
+            </section>
+          )}
 
-          {/* Analyze Button */}
-          <div className="flex justify-center">
-            <Button
-              variant="analyze"
-              size="xl"
-              onClick={handleAnalyze}
-              disabled={!selectedImage || isAnalyzing}
-              className="w-full sm:w-auto"
-            >
-              {isAnalyzing ? (
-                <>
-                  <Activity className="w-5 h-5 animate-spin" />
-                  Analyzing...
-                </>
-              ) : (
-                <>
-                  <Zap className="w-5 h-5" />
-                  Analyze Chart
-                </>
-              )}
-            </Button>
-          </div>
+          {/* Upload Section - Hidden when pending feedback */}
+          {!hasPendingFeedback && (
+            <>
+              <section className="space-y-4">
+                <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                  <Activity className="w-4 h-4" />
+                  <span>Step 1: Upload Chart Screenshot</span>
+                </div>
+                <ChartUploader onImageSelect={setSelectedImage} selectedImage={selectedImage} />
+              </section>
+
+              {/* Analyze Button */}
+              <div className="flex justify-center">
+                <Button
+                  variant="analyze"
+                  size="xl"
+                  onClick={handleAnalyze}
+                  disabled={!selectedImage || isAnalyzing}
+                  className="w-full sm:w-auto"
+                >
+                  {isAnalyzing ? (
+                    <>
+                      <Activity className="w-5 h-5 animate-spin" />
+                      Analyzing...
+                    </>
+                  ) : (
+                    <>
+                      <Zap className="w-5 h-5" />
+                      Analyze Chart
+                    </>
+                  )}
+                </Button>
+              </div>
+            </>
+          )}
 
           {/* Results Section */}
-          {(isAnalyzing || analysisResult) && (
+          {(isAnalyzing || analysisResult) && !hasPendingFeedback && (
             <section className="space-y-4">
               <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
                 <BarChart3 className="w-4 h-4" />
@@ -249,7 +295,7 @@ const Index = () => {
           )}
 
           {/* Info Cards */}
-          {!analysisResult && !isAnalyzing && (
+          {!analysisResult && !isAnalyzing && !hasPendingFeedback && (
             <section className="grid md:grid-cols-3 gap-4 pt-8">
               {[
                 {

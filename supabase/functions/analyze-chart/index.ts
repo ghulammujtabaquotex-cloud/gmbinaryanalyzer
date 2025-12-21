@@ -23,22 +23,38 @@ const getAllowedOrigin = (requestOrigin: string | null): string => {
   return allowedOrigins[0];
 };
 
-const systemPrompt = `You are an expert binary options trading chart analyst. You analyze trading chart screenshots and provide price action analysis.
+const systemPrompt = `You are an expert binary options trading chart analyst. You analyze trading chart screenshots and provide STRICT price action analysis.
 
-ANALYSIS FRAMEWORK:
-1. Identify the trading pair from the chart (e.g., EUR/USD, GBP/USD, BTC/USD)
-2. Determine the current trend: Uptrend, Downtrend, or Range
-3. Identify key support and resistance zones visible in the chart
-4. Analyze the last visible candles for price action patterns:
-   - Pin bars (rejection wicks)
-   - Engulfing candles
-   - Break and retest patterns
-   - Rejection from key levels
+CRITICAL REQUIREMENTS FOR VALID ANALYSIS:
+1. The chart MUST show at least 30 visible candles. If fewer than 30 candles are visible, return NEUTRAL.
+2. You must be able to clearly identify candlestick patterns. If the chart is unclear, return NEUTRAL.
 
-SIGNAL RULES (1-minute timeframe):
-- PUT signal: Price is rejecting from resistance zone (long upper wicks, bearish engulfing, failed breakout)
-- CALL signal: Price is rejecting from support zone (long lower wicks, bullish engulfing, failed breakdown)
-- NEUTRAL signal: Market is choppy, no clear direction, or conflicting signals
+CONFIRMATION RULES - ALL MUST BE MET FOR CALL/PUT SIGNAL:
+
+1. CLEAR MARKET STRUCTURE (Required):
+   - For CALL: Must see Higher Highs AND Higher Lows pattern (uptrend)
+   - For PUT: Must see Lower Highs AND Lower Lows pattern (downtrend)
+   - If structure is unclear or mixed, signal must be NEUTRAL
+
+2. PRICE AT VALID ZONE (Required):
+   - For CALL: Price must be AT or NEAR a clear support zone with visible bounces
+   - For PUT: Price must be AT or NEAR a clear resistance zone with visible rejections
+   - If price is in the middle/nowhere special, signal must be NEUTRAL
+
+3. STRONG REJECTION CONFIRMATION (Required - at least one):
+   - Long wick rejection from the zone (wick should be at least 2x the body size)
+   - OR Strong engulfing candle from the zone (body covers previous candle completely)
+   - If no clear rejection pattern, signal must be NEUTRAL
+
+4. NO CHOPPY/UNCLEAR CONDITIONS (Required):
+   - If 6 or more consecutive candles are the same color (running trend), return NEUTRAL (too extended)
+   - If price is moving sideways with small bodies and no direction, return NEUTRAL
+   - If there are conflicting signals or mixed patterns, return NEUTRAL
+
+SIGNAL DECISION:
+- CALL: ALL 4 confirmation rules are met for bullish setup
+- PUT: ALL 4 confirmation rules are met for bearish setup  
+- NEUTRAL: ANY confirmation rule is NOT met OR conditions are unclear
 
 RESPONSE FORMAT:
 You must respond with valid JSON only, no markdown, no explanation text outside the JSON:
@@ -48,15 +64,16 @@ You must respond with valid JSON only, no markdown, no explanation text outside 
   "signal": "CALL" | "PUT" | "NEUTRAL",
   "supportZone": "price range",
   "resistanceZone": "price range",
-  "explanation": "Detailed price action explanation (2-4 sentences)"
+  "explanation": "Detailed explanation stating which confirmation rules were met or not met (2-4 sentences)"
 }
 
 IMPORTANT:
 - This is for 1-minute timeframe analysis only
-- Provide next candle bias, not a guaranteed prediction
-- Focus on the most recent visible candles
-- Be specific about the price action patterns you observe
-- If you cannot clearly identify the chart elements, default to NEUTRAL`;
+- Be STRICT - when in doubt, return NEUTRAL
+- NEUTRAL is the safe default - only give CALL/PUT when ALL rules are clearly met
+- Count visible candles - if less than 30, return NEUTRAL
+- Check for running trends (6+ same color candles) - if found, return NEUTRAL
+- Focus on the most recent visible candles for rejection patterns`;
 
 // Image magic bytes for validation
 const IMAGE_SIGNATURES: Record<string, number[][]> = {
@@ -266,7 +283,7 @@ serve(async (req) => {
             content: [
               {
                 type: "text",
-                text: "Analyze this trading chart screenshot. Identify the pair, trend, support/resistance zones, and provide a signal (CALL/PUT/NEUTRAL) based on price action. Respond with JSON only.",
+                text: "Analyze this trading chart screenshot. Check ALL confirmation rules strictly: 1) Clear market structure (HH/HL or LH/LL), 2) Price at valid support/resistance zone, 3) Strong rejection pattern (long wick or engulfing), 4) No choppy conditions or running trends (6+ same color candles). Count visible candles - need at least 30. Only give CALL/PUT if ALL rules are met, otherwise NEUTRAL. Respond with JSON only.",
               },
               {
                 type: "image_url",
@@ -326,7 +343,7 @@ serve(async (req) => {
         signal: "NEUTRAL",
         supportZone: "Unable to determine",
         resistanceZone: "Unable to determine",
-        explanation: "Could not fully analyze the chart. Please ensure the image shows a clear trading chart with visible candlesticks and try again.",
+        explanation: "Could not fully analyze the chart. Please ensure the image shows a clear trading chart with at least 30 visible candlesticks and try again.",
       };
     }
 

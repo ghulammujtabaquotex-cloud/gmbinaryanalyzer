@@ -1,5 +1,5 @@
 import { SignalBadge } from "./SignalBadge";
-import { TrendingUp, TrendingDown, Activity, Target, Shield, FileText } from "lucide-react";
+import { TrendingUp, TrendingDown, Activity, Target, Shield, FileText, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface AnalysisData {
@@ -48,6 +48,7 @@ function ResultCard({
 export function AnalysisResults({ data }: AnalysisResultsProps) {
   const TrendIcon = data.trend === "Uptrend" ? TrendingUp : data.trend === "Downtrend" ? TrendingDown : Activity;
   const trendColor = data.trend === "Uptrend" ? "text-success" : data.trend === "Downtrend" ? "text-destructive" : "text-warning";
+  const isTradeSignal = data.signal === "CALL" || data.signal === "PUT";
 
   return (
     <div className="space-y-4">
@@ -59,6 +60,16 @@ export function AnalysisResults({ data }: AnalysisResultsProps) {
         <p className="text-xs uppercase tracking-wider text-muted-foreground mb-3">Next Candle Bias</p>
         <SignalBadge signal={data.signal} size="lg" />
         <p className="text-xs text-muted-foreground mt-3">Based on 1-minute timeframe analysis</p>
+        
+        {/* MTG line - only for CALL/PUT signals */}
+        {isTradeSignal && (
+          <div className="mt-4 pt-3 border-t border-border/50">
+            <div className="flex items-center justify-center gap-2 text-warning">
+              <AlertTriangle className="w-4 h-4" />
+              <p className="text-sm font-medium">Optional: 1 STEP MTG (Own Risk)</p>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Grid of details */}
