@@ -10,28 +10,30 @@ export const useIPUsageTracking = () => {
 
   const fetchUsage = useCallback(async () => {
     try {
-      const today = new Date().toISOString().split("T")[0];
-      
-      const { data, error } = await supabase.rpc("check_ip_usage", {
-        p_ip_address: "client", // Will be handled server-side
-        p_usage_date: today,
-        p_daily_limit: DAILY_LIMIT,
-      });
+      // Call server-side edge function to get real IP usage
+      const { data, error } = await supabase.functions.invoke("check-usage");
 
       if (error) {
         if (import.meta.env.DEV) {
           console.error("Error fetching IP usage:", error);
         }
+        // On error, assume fresh start but allow analysis
+        setUsageCount(0);
+        setLimitReached(false);
+        return;
       }
       
-      if (data && data.length > 0) {
-        setUsageCount(data[0].request_count ?? 0);
-        setLimitReached(!data[0].can_analyze);
+      if (data) {
+        setUsageCount(data.usageCount ?? 0);
+        setLimitReached(!data.canAnalyze);
       }
     } catch (error) {
       if (import.meta.env.DEV) {
         console.error("Error fetching IP usage:", error);
       }
+      // On error, assume fresh start
+      setUsageCount(0);
+      setLimitReached(false);
     } finally {
       setIsLoading(false);
     }
@@ -47,6 +49,11 @@ export const useIPUsageTracking = () => {
     setLimitReached(isLimitReached);
   };
 
+  const refetch = () => {
+    setIsLoading(true);
+    fetchUsage();
+  };
+
   return {
     usageCount,
     remaining: DAILY_LIMIT - usageCount,
@@ -55,5 +62,6 @@ export const useIPUsageTracking = () => {
     canAnalyze: !limitReached && usageCount < DAILY_LIMIT,
     limitReached,
     updateFromResponse,
+    refetch,
   };
 };
