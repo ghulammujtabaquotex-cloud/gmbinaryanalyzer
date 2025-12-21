@@ -26,8 +26,8 @@ export function FeedbackPrompt({ signal, pair, onSubmit }: FeedbackPromptProps) 
       });
     } else {
       toast({
-        title: "Result recorded",
-        description: `Your ${result.toLowerCase()} has been recorded. You can now analyze a new chart.`,
+        title: "Result Successfully submitted",
+        description: "Now you can analyze a new chart.",
       });
     }
   };

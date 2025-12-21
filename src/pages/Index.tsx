@@ -262,17 +262,41 @@ const Index = () => {
             </div>
           )}
 
-          {/* Upload Section - Always visible at its position */}
+          {/* Upload Section - Shows uploader OR "Click here" link based on state */}
           <section className="space-y-4">
             <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
               <Activity className="w-4 h-4" />
               <span>Step 1: Upload Chart Screenshot</span>
             </div>
-            <ChartUploader 
-              onImageSelect={setSelectedImage} 
-              selectedImage={selectedImage} 
-              disabled={isAnalyzing}
-            />
+            {pendingFeedback && analysisResult ? (
+              <div 
+                onClick={() => {
+                  const resultsSection = document.getElementById('results-section');
+                  if (resultsSection) {
+                    resultsSection.scrollIntoView({ behavior: 'smooth' });
+                  }
+                }}
+                className="flex flex-col items-center justify-center w-full h-64 rounded-xl cursor-pointer transition-all duration-300 glass-card gradient-border hover:bg-primary/5 hover:border-primary/50"
+              >
+                <div className="flex flex-col items-center justify-center text-center p-4">
+                  <div className="p-4 rounded-full mb-4 bg-primary/20">
+                    <Activity className="w-8 h-8 text-primary animate-pulse" />
+                  </div>
+                  <p className="text-lg font-semibold text-primary hover:underline">
+                    Click here!
+                  </p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Submit result for next trade.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <ChartUploader 
+                onImageSelect={setSelectedImage} 
+                selectedImage={selectedImage} 
+                disabled={isAnalyzing}
+              />
+            )}
           </section>
 
           {/* Analyze Button - Hidden when pending feedback */}
@@ -302,7 +326,7 @@ const Index = () => {
 
           {/* Results Section - Shows analysis results */}
           {(isAnalyzing || analysisResult) && (
-            <section className="space-y-4">
+            <section id="results-section" className="space-y-4">
               <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
                 <BarChart3 className="w-4 h-4" />
                 <span>Analysis Results</span>
