@@ -38,9 +38,9 @@ export const useIPUsageTracking = () => {
   }, []);
 
   useEffect(() => {
-    // Initial load - usage will be tracked server-side
-    setIsLoading(false);
-  }, []);
+    // Fetch actual usage on mount
+    fetchUsage();
+  }, [fetchUsage]);
 
   const updateFromResponse = (remaining: number, isLimitReached: boolean = false) => {
     setUsageCount(DAILY_LIMIT - remaining);
