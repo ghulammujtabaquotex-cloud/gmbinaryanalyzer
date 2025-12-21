@@ -19,26 +19,23 @@ export function useGlobalResults() {
 
   const fetchResults = useCallback(async () => {
     try {
-      const { data, error } = await supabase
-        .from("trade_results")
-        .select("result");
+      // Use secure RPC function that only returns aggregated stats (no user data exposed)
+      const { data, error } = await supabase.rpc("get_trade_statistics");
 
       if (error) {
         console.error("Error fetching global results:", error);
         return;
       }
 
-      const wins = data?.filter((r) => r.result.toLowerCase() === "win").length || 0;
-      const losses = data?.filter((r) => r.result.toLowerCase() === "loss").length || 0;
-      const totalTrades = wins + losses;
-      const accuracy = totalTrades > 0 ? Math.round((wins / totalTrades) * 100) : 0;
-
-      setResults({
-        totalTrades,
-        wins,
-        losses,
-        accuracy,
-      });
+      if (data && data.length > 0) {
+        const stats = data[0];
+        setResults({
+          totalTrades: Number(stats.total_trades) || 0,
+          wins: Number(stats.total_wins) || 0,
+          losses: Number(stats.total_losses) || 0,
+          accuracy: Number(stats.accuracy) || 0,
+        });
+      }
     } catch (err) {
       console.error("Error fetching global results:", err);
     } finally {
