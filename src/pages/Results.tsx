@@ -111,9 +111,12 @@ const Results = () => {
 
       {/* Footer */}
       <footer className="border-t border-border/50 mt-auto">
-        <div className="container mx-auto px-4 py-6">
+        <div className="container mx-auto px-4 py-6 space-y-4">
           <p className="text-center text-xs text-muted-foreground">
             Results are based on user-submitted outcomes. Past performance does not guarantee future results.
+          </p>
+          <p className="text-center text-xs text-muted-foreground">
+            copyright © GHULAM MUJTABA
           </p>
         </div>
       </footer>

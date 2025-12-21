@@ -1,7 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 
-const DAILY_LIMIT = 300;
+const DAILY_LIMIT = 5;
 
 // Allowed origins for CORS - restrict to specific known domains only
 const getAllowedOrigin = (requestOrigin: string | null): string => {
@@ -138,11 +137,82 @@ const validateImageInput = (imageBase64: string): { valid: boolean; error?: stri
   return { valid: true };
 };
 
-// Server-side rate limiting check using atomic database function
-const checkRateLimit = async (
+// Get client IP address
+const getClientIP = (req: Request): string => {
+  // Try various headers for real IP behind proxies
+  const forwarded = req.headers.get("x-forwarded-for");
+  if (forwarded) {
+    return forwarded.split(",")[0].trim();
+  }
+  
+  const realIP = req.headers.get("x-real-ip");
+  if (realIP) {
+    return realIP;
+  }
+  
+  const cfConnectingIP = req.headers.get("cf-connecting-ip");
+  if (cfConnectingIP) {
+    return cfConnectingIP;
+  }
+  
+  // Fallback
+  return "unknown";
+};
+
+// Check IP usage without incrementing
+const checkIPUsage = async (
   supabaseUrl: string,
   serviceRoleKey: string,
-  userId: string
+  ipAddress: string
+): Promise<{ count: number; remaining: number; canAnalyze: boolean }> => {
+  const today = new Date().toISOString().split("T")[0];
+
+  const headers = {
+    "apikey": serviceRoleKey,
+    "Authorization": `Bearer ${serviceRoleKey}`,
+    "Content-Type": "application/json",
+  };
+
+  try {
+    const rpcResponse = await fetch(
+      `${supabaseUrl}/rest/v1/rpc/check_ip_usage`,
+      {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          p_ip_address: ipAddress,
+          p_usage_date: today,
+          p_daily_limit: DAILY_LIMIT,
+        }),
+      }
+    );
+
+    if (!rpcResponse.ok) {
+      console.error("Check IP usage RPC failed, status:", rpcResponse.status);
+      return { count: 0, remaining: DAILY_LIMIT, canAnalyze: true };
+    }
+
+    const result = await rpcResponse.json();
+    if (result && result.length > 0) {
+      return { 
+        count: result[0].request_count,
+        remaining: result[0].remaining,
+        canAnalyze: result[0].can_analyze
+      };
+    }
+
+    return { count: 0, remaining: DAILY_LIMIT, canAnalyze: true };
+  } catch (err) {
+    console.error("Check IP usage error:", err);
+    return { count: 0, remaining: DAILY_LIMIT, canAnalyze: true };
+  }
+};
+
+// Increment IP usage (only call after CALL/PUT signal)
+const incrementIPUsage = async (
+  supabaseUrl: string,
+  serviceRoleKey: string,
+  ipAddress: string
 ): Promise<{ allowed: boolean; remaining: number }> => {
   const today = new Date().toISOString().split("T")[0];
 
@@ -153,14 +223,13 @@ const checkRateLimit = async (
   };
 
   try {
-    // Use atomic RPC function to prevent race conditions
     const rpcResponse = await fetch(
-      `${supabaseUrl}/rest/v1/rpc/atomic_increment_usage`,
+      `${supabaseUrl}/rest/v1/rpc/atomic_increment_ip_usage`,
       {
         method: "POST",
         headers,
         body: JSON.stringify({
-          p_user_id: userId,
+          p_ip_address: ipAddress,
           p_usage_date: today,
           p_daily_limit: DAILY_LIMIT,
         }),
@@ -168,8 +237,7 @@ const checkRateLimit = async (
     );
 
     if (!rpcResponse.ok) {
-      console.error("Atomic rate limit RPC failed, status:", rpcResponse.status);
-      // Fallback: deny if atomic check fails for safety
+      console.error("Increment IP usage RPC failed, status:", rpcResponse.status);
       return { allowed: false, remaining: 0 };
     }
 
@@ -181,11 +249,9 @@ const checkRateLimit = async (
       };
     }
 
-    // If no result, deny for safety
     return { allowed: false, remaining: 0 };
   } catch (err) {
-    console.error("Rate limit check error");
-    // Fail closed: deny access if rate limiting fails
+    console.error("Increment IP usage error:", err);
     return { allowed: false, remaining: 0 };
   }
 };
@@ -202,15 +268,6 @@ serve(async (req) => {
   }
 
   try {
-    // Get user from JWT
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: "Authentication required" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     
@@ -222,26 +279,20 @@ serve(async (req) => {
       );
     }
 
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    // Get client IP
+    const clientIP = getClientIP(req);
+    console.log("Processing request from IP:", clientIP.slice(0, 10) + "***");
 
-    // Verify JWT and get user
-    const token = authHeader.replace("Bearer ", "");
-    const { data: userData, error: userError } = await supabase.auth.getUser(token);
-
-    if (userError || !userData.user) {
+    // Check current usage (without incrementing)
+    const { remaining, canAnalyze } = await checkIPUsage(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, clientIP);
+    
+    if (!canAnalyze) {
       return new Response(
-        JSON.stringify({ error: "Invalid or expired session. Please sign in again." }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const userId = userData.user.id;
-
-    // Server-side rate limit check
-    const { allowed, remaining } = await checkRateLimit(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, userId);
-    if (!allowed) {
-      return new Response(
-        JSON.stringify({ error: "Daily limit of 300 analysis requests reached. Please try again tomorrow." }),
+        JSON.stringify({ 
+          error: "Daily limit reached",
+          limitReached: true,
+          message: "JOIN VIP FOR MORE CREDIT"
+        }),
         { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -266,7 +317,7 @@ serve(async (req) => {
       );
     }
 
-    console.log("Processing analysis request for user:", userId.slice(0, 8));
+    console.log("Processing analysis request, remaining before:", remaining);
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -328,8 +379,6 @@ serve(async (req) => {
       );
     }
 
-    console.log("Analysis completed, remaining:", remaining);
-
     // Parse the JSON response from AI
     let analysis;
     try {
@@ -347,11 +396,21 @@ serve(async (req) => {
       };
     }
 
-    return new Response(JSON.stringify({ ...analysis, remaining }), {
+    // ONLY increment usage for CALL or PUT signals, NOT for NEUTRAL
+    let finalRemaining = remaining;
+    if (analysis.signal === "CALL" || analysis.signal === "PUT") {
+      const { remaining: newRemaining } = await incrementIPUsage(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, clientIP);
+      finalRemaining = newRemaining;
+      console.log("CALL/PUT signal - usage incremented, remaining:", finalRemaining);
+    } else {
+      console.log("NEUTRAL signal - usage NOT incremented, remaining:", finalRemaining);
+    }
+
+    return new Response(JSON.stringify({ ...analysis, remaining: finalRemaining }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch {
-    console.error("ERR_UNEXPECTED");
+  } catch (err) {
+    console.error("ERR_UNEXPECTED:", err);
     return new Response(
       JSON.stringify({ error: "Analysis failed. Please try again." }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }

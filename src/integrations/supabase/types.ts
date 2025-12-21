@@ -41,6 +41,33 @@ export type Database = {
         }
         Relationships: []
       }
+      ip_usage: {
+        Row: {
+          created_at: string
+          id: string
+          ip_address: string
+          request_count: number
+          updated_at: string
+          usage_date: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          ip_address: string
+          request_count?: number
+          updated_at?: string
+          usage_date?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          ip_address?: string
+          request_count?: number
+          updated_at?: string
+          usage_date?: string
+        }
+        Relationships: []
+      }
       pending_feedback: {
         Row: {
           created_at: string
@@ -94,11 +121,34 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      atomic_increment_ip_usage: {
+        Args: {
+          p_daily_limit: number
+          p_ip_address: string
+          p_usage_date: string
+        }
+        Returns: {
+          allowed: boolean
+          remaining: number
+        }[]
+      }
       atomic_increment_usage: {
         Args: { p_daily_limit: number; p_usage_date: string; p_user_id: string }
         Returns: {
           allowed: boolean
           remaining: number
+        }[]
+      }
+      check_ip_usage: {
+        Args: {
+          p_daily_limit: number
+          p_ip_address: string
+          p_usage_date: string
+        }
+        Returns: {
+          can_analyze: boolean
+          remaining: number
+          request_count: number
         }[]
       }
     }

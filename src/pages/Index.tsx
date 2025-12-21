@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChartUploader } from "@/components/ChartUploader";
 import { AnalysisResults, type AnalysisData } from "@/components/AnalysisResults";
@@ -6,29 +6,21 @@ import { LoadingAnalysis } from "@/components/LoadingAnalysis";
 import { UsageWarning } from "@/components/UsageWarning";
 import { FeedbackPrompt } from "@/components/FeedbackPrompt";
 import { Button } from "@/components/ui/button";
-import { Activity, BarChart3, Zap, LogOut, Trophy } from "lucide-react";
+import { Activity, BarChart3, Zap, Trophy, ExternalLink } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { sanitizeAnalysisData } from "@/lib/validateAnalysis";
-import { useAuth } from "@/hooks/useAuth";
-import { useUsageTracking } from "@/hooks/useUsageTracking";
-import { usePendingFeedback } from "@/hooks/usePendingFeedback";
+import { useIPUsageTracking } from "@/hooks/useIPUsageTracking";
 
 const Index = () => {
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<AnalysisData | null>(null);
+  const [pendingFeedback, setPendingFeedback] = useState<{ signal: "CALL" | "PUT"; pair: string } | null>(null);
+  const [showVIPNotice, setShowVIPNotice] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { user, isLoading: authLoading, signOut } = useAuth();
-  const { remaining, dailyLimit, incrementUsage, canAnalyze, isLoading: usageLoading } = useUsageTracking();
-  const { pendingFeedback, hasPendingFeedback, createPendingFeedback, submitResult, isLoading: feedbackLoading } = usePendingFeedback();
-
-  useEffect(() => {
-    if (!authLoading && !user) {
-      navigate("/auth");
-    }
-  }, [user, authLoading, navigate]);
+  const { remaining, dailyLimit, canAnalyze, isLoading: usageLoading, updateFromResponse, limitReached } = useIPUsageTracking();
 
   const fileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -37,11 +29,6 @@ const Index = () => {
       reader.onload = () => resolve(reader.result as string);
       reader.onerror = reject;
     });
-  };
-
-  const handleSignOut = async () => {
-    await signOut();
-    navigate("/auth");
   };
 
   const handleAnalyze = async () => {
@@ -54,17 +41,18 @@ const Index = () => {
       return;
     }
 
-    if (!canAnalyze) {
+    if (!canAnalyze || limitReached) {
+      setShowVIPNotice(true);
       toast({
         title: "Daily limit reached",
-        description: "You've used all 300 analysis requests for today. Try again tomorrow!",
+        description: "JOIN VIP FOR MORE CREDIT",
         variant: "destructive",
       });
       return;
     }
 
     // Check for pending feedback - lock analysis until result submitted
-    if (hasPendingFeedback) {
+    if (pendingFeedback) {
       toast({
         title: "Result pending",
         description: "Please submit your previous trade result before analyzing a new chart.",
@@ -80,24 +68,13 @@ const Index = () => {
 
     setIsAnalyzing(true);
     setAnalysisResult(null);
+    setShowVIPNotice(false);
 
     // Create abort controller for timeout
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
 
     try {
-      // Check and increment usage before making the request
-      const { allowed, remaining: newRemaining } = await incrementUsage();
-      
-      if (!allowed) {
-        toast({
-          title: "Daily limit reached",
-          description: "You've used all 300 analysis requests for today. Try again tomorrow!",
-          variant: "destructive",
-        });
-        return;
-      }
-
       const imageBase64 = await fileToBase64(selectedImage);
 
       const { data, error } = await supabase.functions.invoke("analyze-chart", {
@@ -110,6 +87,17 @@ const Index = () => {
         throw error;
       }
 
+      if (data.limitReached) {
+        setShowVIPNotice(true);
+        updateFromResponse(0, true);
+        toast({
+          title: "Daily limit reached",
+          description: "JOIN VIP FOR MORE CREDIT",
+          variant: "destructive",
+        });
+        return;
+      }
+
       if (data.error) {
         throw new Error(data.error);
       }
@@ -118,16 +106,26 @@ const Index = () => {
       const sanitizedData = sanitizeAnalysisData(data);
       setAnalysisResult(sanitizedData);
 
-      // If CALL or PUT signal, create pending feedback (locks analysis until feedback)
-      if (sanitizedData.signal === "CALL" || sanitizedData.signal === "PUT") {
-        await createPendingFeedback(sanitizedData.signal, sanitizedData.pair);
+      // Update remaining from response
+      if (data.remaining !== undefined) {
+        updateFromResponse(data.remaining);
       }
 
-      // Show remaining usage toast
-      toast({
-        title: "Analysis complete!",
-        description: `You have ${newRemaining} analysis requests remaining today.`,
-      });
+      // If CALL or PUT signal, set pending feedback (locks analysis until feedback)
+      if (sanitizedData.signal === "CALL" || sanitizedData.signal === "PUT") {
+        setPendingFeedback({ signal: sanitizedData.signal, pair: sanitizedData.pair });
+        
+        toast({
+          title: "Analysis complete!",
+          description: `You have ${data.remaining} analysis requests remaining today.`,
+        });
+      } else {
+        // NEUTRAL signal - no feedback needed, no usage counted
+        toast({
+          title: "Analysis complete!",
+          description: "NEUTRAL signal - no trade recommended. You can analyze another chart.",
+        });
+      }
     } catch (error) {
       clearTimeout(timeoutId);
       
@@ -152,7 +150,41 @@ const Index = () => {
     }
   };
 
-  if (authLoading || usageLoading || feedbackLoading) {
+  const handleSubmitResult = async (result: "WIN" | "LOSS"): Promise<{ error: string | null }> => {
+    if (!pendingFeedback) return { error: "No pending feedback" };
+
+    try {
+      // Save result to database (anonymous - no user_id needed)
+      const { error } = await supabase
+        .from("trade_results")
+        .insert({
+          signal: pendingFeedback.signal,
+          result: result.toLowerCase(),
+          user_id: "00000000-0000-0000-0000-000000000000", // Anonymous placeholder
+        });
+
+      if (error) {
+        // Log only in development
+        if (import.meta.env.DEV) {
+          console.error("Error saving result:", error);
+        }
+        return { error: "Failed to save result" };
+      }
+
+      setPendingFeedback(null);
+      setAnalysisResult(null);
+      setSelectedImage(null);
+
+      return { error: null };
+    } catch (error) {
+      if (import.meta.env.DEV) {
+        console.error("Error submitting result:", error);
+      }
+      return { error: "Failed to save result. Please try again." };
+    }
+  };
+
+  if (usageLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="animate-pulse text-muted-foreground">Loading...</div>
@@ -160,12 +192,8 @@ const Index = () => {
     );
   }
 
-  if (!user) {
-    return null;
-  }
-
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
       <header className="border-b border-border/50 backdrop-blur-sm sticky top-0 z-50 bg-background/80">
         <div className="container mx-auto px-4 py-4">
@@ -189,25 +217,13 @@ const Index = () => {
                 <Trophy className="w-4 h-4 mr-1 sm:mr-2" />
                 <span className="hidden sm:inline">Results</span>
               </Button>
-              <span className="text-xs text-muted-foreground hidden sm:block">
-                {user?.email}
-              </span>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleSignOut}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                <LogOut className="w-4 h-4 mr-1 sm:mr-2" />
-                <span className="hidden sm:inline">Sign Out</span>
-              </Button>
             </div>
           </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-8 max-w-4xl">
+      <main className="container mx-auto px-4 py-8 max-w-4xl flex-1">
         <div className="space-y-8">
           {/* Hero Section */}
           <div className="text-center space-y-4 py-8">
@@ -228,23 +244,33 @@ const Index = () => {
             <UsageWarning remaining={remaining} dailyLimit={dailyLimit} />
           </div>
 
+          {/* VIP Notice */}
+          {showVIPNotice && (
+            <div className="flex justify-center">
+              <div className="bg-primary/10 border border-primary/30 rounded-xl p-6 text-center max-w-md">
+                <h3 className="text-xl font-bold text-primary mb-2">Daily Limit Reached</h3>
+                <p className="text-lg font-semibold text-foreground">JOIN VIP FOR MORE CREDIT</p>
+              </div>
+            </div>
+          )}
+
           {/* Pending Feedback Section - Shows when user needs to submit result */}
-          {hasPendingFeedback && pendingFeedback && (
+          {pendingFeedback && (
             <section className="space-y-4">
-              <div className="flex items-center gap-2 text-sm font-medium text-warning">
+              <div className="flex items-center gap-2 text-sm font-medium text-amber-500">
                 <Activity className="w-4 h-4" />
                 <span>Action Required: Submit Trade Result</span>
               </div>
               <FeedbackPrompt
-                signal={pendingFeedback.signal as "CALL" | "PUT"}
+                signal={pendingFeedback.signal}
                 pair={pendingFeedback.pair}
-                onSubmit={submitResult}
+                onSubmit={handleSubmitResult}
               />
             </section>
           )}
 
           {/* Upload Section - Hidden when pending feedback */}
-          {!hasPendingFeedback && (
+          {!pendingFeedback && (
             <>
               <section className="space-y-4">
                 <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
@@ -260,7 +286,7 @@ const Index = () => {
                   variant="analyze"
                   size="xl"
                   onClick={handleAnalyze}
-                  disabled={!selectedImage || isAnalyzing}
+                  disabled={!selectedImage || isAnalyzing || limitReached}
                   className="w-full sm:w-auto"
                 >
                   {isAnalyzing ? (
@@ -280,7 +306,7 @@ const Index = () => {
           )}
 
           {/* Results Section */}
-          {(isAnalyzing || analysisResult) && !hasPendingFeedback && (
+          {(isAnalyzing || analysisResult) && !pendingFeedback && (
             <section className="space-y-4">
               <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
                 <BarChart3 className="w-4 h-4" />
@@ -295,7 +321,7 @@ const Index = () => {
           )}
 
           {/* Info Cards */}
-          {!analysisResult && !isAnalyzing && !hasPendingFeedback && (
+          {!analysisResult && !isAnalyzing && !pendingFeedback && (
             <section className="grid md:grid-cols-3 gap-4 pt-8">
               {[
                 {
@@ -332,15 +358,19 @@ const Index = () => {
             GM BINARY PRO provides technical analysis only. No financial advice. No profit guarantee. Trade at your own risk.
           </p>
           <p className="text-center text-sm text-muted-foreground">
-            For more bots & recovery join group:{" "}
+            For more updates & Software{" "}
             <a
               href="https://chat.whatsapp.com/LqDeKcUo89c3Hu5CWjaAM9"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-primary font-semibold hover:underline transition-colors"
+              className="text-primary font-semibold hover:underline transition-colors inline-flex items-center gap-1"
             >
-              JOIN
+              click here!
+              <ExternalLink className="w-3 h-3" />
             </a>
+          </p>
+          <p className="text-center text-xs text-muted-foreground">
+            copyright © GHULAM MUJTABA
           </p>
         </div>
       </footer>
