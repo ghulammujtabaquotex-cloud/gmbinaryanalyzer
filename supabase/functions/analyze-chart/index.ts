@@ -112,15 +112,16 @@ const validateImageMagicBytes = (base64Data: string): boolean => {
   }
 };
 
-// Input validation
+// Input validation - tightened size limits for security
 const validateImageInput = (imageBase64: string): { valid: boolean; error?: string } => {
   if (!imageBase64 || typeof imageBase64 !== "string") {
     return { valid: false, error: "No image provided" };
   }
 
-  const maxBase64Size = 7 * 1024 * 1024;
+  // Tightened limit: 2.5MB base64 = ~2MB actual file size (base64 is ~33% larger)
+  const maxBase64Size = 2.5 * 1024 * 1024;
   if (imageBase64.length > maxBase64Size) {
-    return { valid: false, error: "Image is too large. Please use an image under 5MB." };
+    return { valid: false, error: "Image is too large. Please use an image under 2MB." };
   }
 
   const dataUriPattern = /^data:image\/(png|jpeg|jpg|gif|webp);base64,/i;
@@ -319,34 +320,53 @@ serve(async (req) => {
 
     console.log("Processing analysis request, remaining before:", remaining);
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: systemPrompt },
-          {
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text: "Analyze this trading chart screenshot. Check ALL confirmation rules strictly: 1) Clear market structure (HH/HL or LH/LL), 2) Price at valid support/resistance zone, 3) Strong rejection pattern (long wick or engulfing), 4) No choppy conditions or running trends (6+ same color candles). Count visible candles - need at least 30. Only give CALL/PUT if ALL rules are met, otherwise NEUTRAL. Respond with JSON only.",
-              },
-              {
-                type: "image_url",
-                image_url: {
-                  url: imageBase64,
+    // Add timeout for AI gateway request (30 seconds)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+    let response: Response;
+    try {
+      response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        signal: controller.signal,
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash",
+          messages: [
+            { role: "system", content: systemPrompt },
+            {
+              role: "user",
+              content: [
+                {
+                  type: "text",
+                  text: "Analyze this trading chart screenshot. Check ALL confirmation rules strictly: 1) Clear market structure (HH/HL or LH/LL), 2) Price at valid support/resistance zone, 3) Strong rejection pattern (long wick or engulfing), 4) No choppy conditions or running trends (6+ same color candles). Count visible candles - need at least 30. Only give CALL/PUT if ALL rules are met, otherwise NEUTRAL. Respond with JSON only.",
                 },
-              },
-            ],
-          },
-        ],
-      }),
-    });
+                {
+                  type: "image_url",
+                  image_url: {
+                    url: imageBase64,
+                  },
+                },
+              ],
+            },
+          ],
+        }),
+      });
+      clearTimeout(timeoutId);
+    } catch (err) {
+      clearTimeout(timeoutId);
+      if (err instanceof Error && err.name === 'AbortError') {
+        console.error("Request timeout after 30s");
+        return new Response(
+          JSON.stringify({ error: "Request timed out. Please try again." }),
+          { status: 504, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      throw err;
+    }
 
     if (!response.ok) {
       if (response.status === 429) {
@@ -361,7 +381,7 @@ serve(async (req) => {
           { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      console.error("ERR_GATEWAY:", response.status);
+      console.error("Gateway error:", response.status);
       return new Response(
         JSON.stringify({ error: "Analysis failed. Please try again." }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }

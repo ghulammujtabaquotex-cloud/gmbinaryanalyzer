@@ -151,6 +151,15 @@ export type Database = {
           request_count: number
         }[]
       }
+      get_trade_statistics: {
+        Args: never
+        Returns: {
+          accuracy: number
+          total_losses: number
+          total_trades: number
+          total_wins: number
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never
