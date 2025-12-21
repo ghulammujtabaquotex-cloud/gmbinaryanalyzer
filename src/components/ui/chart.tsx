@@ -58,6 +58,44 @@ const ChartContainer = React.forwardRef<
 });
 ChartContainer.displayName = "Chart";
 
+/**
+ * Validates that a color value is a safe CSS color format.
+ * Prevents XSS by only allowing known-safe color patterns.
+ * SECURITY: ChartConfig must NEVER accept user input without validation.
+ */
+const isValidCSSColor = (color: string): boolean => {
+  if (!color || typeof color !== "string") return false;
+  
+  // Sanitize: remove any potentially dangerous characters first
+  const sanitized = color.trim();
+  
+  // Allow only safe color formats:
+  // - Hex: #fff, #ffffff, #ffffffff (with alpha)
+  // - RGB/RGBA: rgb(0,0,0), rgba(0,0,0,0.5)
+  // - HSL/HSLA: hsl(0,0%,0%), hsla(0,0%,0%,0.5)
+  // - CSS variables: var(--color-name)
+  // - Named colors: red, blue, transparent, etc.
+  const safeColorPatterns = [
+    /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/,
+    /^rgb\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*\)$/,
+    /^rgba\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*[\d.]+\s*\)$/,
+    /^hsl\(\s*[\d.]+\s*,\s*[\d.]+%?\s*,\s*[\d.]+%?\s*\)$/,
+    /^hsla\(\s*[\d.]+\s*,\s*[\d.]+%?\s*,\s*[\d.]+%?\s*,\s*[\d.]+\s*\)$/,
+    /^var\(--[a-zA-Z0-9-]+\)$/,
+    /^[a-zA-Z]+$/, // Named colors like "red", "blue", "transparent"
+  ];
+  
+  return safeColorPatterns.some((pattern) => pattern.test(sanitized));
+};
+
+/**
+ * Sanitizes a CSS key name to prevent injection.
+ */
+const sanitizeCSSKey = (key: string): string => {
+  // Only allow alphanumeric and hyphens in CSS variable names
+  return key.replace(/[^a-zA-Z0-9-]/g, "");
+};
+
 const ChartStyle = ({ id, config }: { id: string; config: ChartConfig }) => {
   const colorConfig = Object.entries(config).filter(([_, config]) => config.theme || config.color);
 
@@ -65,23 +103,34 @@ const ChartStyle = ({ id, config }: { id: string; config: ChartConfig }) => {
     return null;
   }
 
+  // Build CSS using validated and sanitized values only
+  const cssContent = Object.entries(THEMES)
+    .map(([theme, prefix]) => {
+      const cssVars = colorConfig
+        .map(([key, itemConfig]) => {
+          const color = itemConfig.theme?.[theme as keyof typeof itemConfig.theme] || itemConfig.color;
+          const sanitizedKey = sanitizeCSSKey(key);
+          
+          // Only include if color is valid and key is sanitized
+          if (color && isValidCSSColor(color) && sanitizedKey) {
+            return `  --color-${sanitizedKey}: ${color};`;
+          }
+          return null;
+        })
+        .filter(Boolean)
+        .join("\n");
+
+      // Sanitize the ID to prevent CSS injection
+      const sanitizedId = id.replace(/[^a-zA-Z0-9-]/g, "");
+      
+      return `${prefix} [data-chart=${sanitizedId}] {\n${cssVars}\n}`;
+    })
+    .join("\n");
+
   return (
     <style
       dangerouslySetInnerHTML={{
-        __html: Object.entries(THEMES)
-          .map(
-            ([theme, prefix]) => `
-${prefix} [data-chart=${id}] {
-${colorConfig
-  .map(([key, itemConfig]) => {
-    const color = itemConfig.theme?.[theme as keyof typeof itemConfig.theme] || itemConfig.color;
-    return color ? `  --color-${key}: ${color};` : null;
-  })
-  .join("\n")}
-}
-`,
-          )
-          .join("\n"),
+        __html: cssContent,
       }}
     />
   );
