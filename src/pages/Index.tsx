@@ -70,33 +70,24 @@ const Index = () => {
     setAnalysisResult(null);
     setShowVIPNotice(false);
 
-    // Create abort controller for timeout
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => {
-      controller.abort();
-      setIsAnalyzing(false);
-      toast({
-        title: "Analysis timed out",
-        description: "The analysis took too long. Please try again.",
-        variant: "destructive",
-      });
-    }, 60000); // 60 second timeout
-
-    try {
+    // Hard client timeout guard (supabase-js invoke can't be aborted reliably)
+    const invokePromise = (async () => {
       const imageBase64 = await fileToBase64(selectedImage);
-
-      const response = await supabase.functions.invoke("analyze-chart", {
+      return supabase.functions.invoke("analyze-chart", {
         body: { imageBase64 },
       });
-      
-      clearTimeout(timeoutId);
-      
-      // Check if request was aborted
-      if (controller.signal.aborted) {
-        return;
-      }
+    })();
 
-      const { data, error } = response;
+    const timeoutMs = 90000;
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      const id = setTimeout(() => {
+        clearTimeout(id);
+        reject(new Error("CLIENT_TIMEOUT"));
+      }, timeoutMs);
+    });
+
+    try {
+      const { data, error } = await Promise.race([invokePromise, timeoutPromise]);
 
       if (error) {
         throw error;
@@ -142,19 +133,18 @@ const Index = () => {
         });
       }
     } catch (error) {
-      clearTimeout(timeoutId);
-      
       // Log only in development
       if (import.meta.env.DEV) {
         console.error("Analysis error:", error);
       }
-      
-      const errorMessage = error instanceof Error 
-        ? (error.name === 'AbortError' 
-          ? "Analysis timed out. Please try again." 
-          : error.message)
-        : "Could not analyze the chart. Please try again.";
-      
+
+      const errorMessage =
+        error instanceof Error && error.message === "CLIENT_TIMEOUT"
+          ? "Server is taking too long. Please try again."
+          : error instanceof Error
+            ? error.message
+            : "Could not analyze the chart. Please try again.";
+
       toast({
         title: "Analysis failed",
         description: errorMessage,
