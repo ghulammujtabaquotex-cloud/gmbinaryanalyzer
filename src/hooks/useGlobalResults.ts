@@ -28,8 +28,8 @@ export function useGlobalResults() {
         return;
       }
 
-      const wins = data?.filter((r) => r.result === "WIN").length || 0;
-      const losses = data?.filter((r) => r.result === "LOSS").length || 0;
+      const wins = data?.filter((r) => r.result.toLowerCase() === "win").length || 0;
+      const losses = data?.filter((r) => r.result.toLowerCase() === "loss").length || 0;
       const totalTrades = wins + losses;
       const accuracy = totalTrades > 0 ? Math.round((wins / totalTrades) * 100) : 0;
 
