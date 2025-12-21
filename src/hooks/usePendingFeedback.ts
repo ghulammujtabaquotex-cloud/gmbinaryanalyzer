@@ -29,13 +29,17 @@ export function usePendingFeedback() {
         .maybeSingle();
 
       if (error) {
-        console.error("Error fetching pending feedback:", error);
+        if (import.meta.env.DEV) {
+          console.error("Error fetching pending feedback:", error);
+        }
         setPendingFeedback(null);
       } else {
         setPendingFeedback(data as PendingFeedback | null);
       }
     } catch (err) {
-      console.error("Error fetching pending feedback:", err);
+      if (import.meta.env.DEV) {
+        console.error("Error fetching pending feedback:", err);
+      }
       setPendingFeedback(null);
     } finally {
       setIsLoading(false);
@@ -64,15 +68,19 @@ export function usePendingFeedback() {
           await fetchPendingFeedback();
           return { error: null };
         }
-        console.error("Error creating pending feedback:", error);
-        return { error: error.message };
+        if (import.meta.env.DEV) {
+          console.error("Error creating pending feedback:", error);
+        }
+        return { error: "Failed to save feedback. Please try again." };
       }
 
       await fetchPendingFeedback();
       return { error: null };
     } catch (err) {
-      console.error("Error creating pending feedback:", err);
-      return { error: "Failed to create pending feedback" };
+      if (import.meta.env.DEV) {
+        console.error("Error creating pending feedback:", err);
+      }
+      return { error: "Failed to save feedback. Please try again." };
     }
   };
 
@@ -90,8 +98,10 @@ export function usePendingFeedback() {
         });
 
       if (insertError) {
-        console.error("Error inserting trade result:", insertError);
-        return { error: insertError.message };
+        if (import.meta.env.DEV) {
+          console.error("Error inserting trade result:", insertError);
+        }
+        return { error: "Failed to save result. Please try again." };
       }
 
       // Delete the pending feedback
@@ -101,15 +111,19 @@ export function usePendingFeedback() {
         .eq("user_id", user.id);
 
       if (deleteError) {
-        console.error("Error deleting pending feedback:", deleteError);
-        return { error: deleteError.message };
+        if (import.meta.env.DEV) {
+          console.error("Error deleting pending feedback:", deleteError);
+        }
+        return { error: "Failed to complete operation. Please try again." };
       }
 
       setPendingFeedback(null);
       return { error: null };
     } catch (err) {
-      console.error("Error submitting result:", err);
-      return { error: "Failed to submit result" };
+      if (import.meta.env.DEV) {
+        console.error("Error submitting result:", err);
+      }
+      return { error: "Failed to submit result. Please try again." };
     }
   };
 

@@ -23,7 +23,9 @@ export function useGlobalResults() {
       const { data, error } = await supabase.rpc("get_trade_statistics");
 
       if (error) {
-        console.error("Error fetching global results:", error);
+        if (import.meta.env.DEV) {
+          console.error("Error fetching global results:", error);
+        }
         return;
       }
 
@@ -37,7 +39,9 @@ export function useGlobalResults() {
         });
       }
     } catch (err) {
-      console.error("Error fetching global results:", err);
+      if (import.meta.env.DEV) {
+        console.error("Error fetching global results:", err);
+      }
     } finally {
       setIsLoading(false);
     }
