@@ -67,7 +67,7 @@ export function SignalHistory() {
   };
 
   const getResultBadge = (result: string | null) => {
-    if (!result) return <Badge variant="outline" className="text-warning border-warning/50">Pending</Badge>;
+    if (!result) return <Badge variant="outline" className="text-muted-foreground border-muted-foreground/50">Awaiting</Badge>;
     if (result.toUpperCase() === 'WIN') return <Badge className="bg-success text-success-foreground">WIN</Badge>;
     return <Badge variant="destructive">LOSS</Badge>;
   };
