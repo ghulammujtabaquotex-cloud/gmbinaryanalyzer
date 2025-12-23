@@ -76,12 +76,38 @@ const Admin = () => {
     }
   }, [isAdmin]);
 
-  const getImageUrl = (path: string) => {
-    const { data } = supabase.storage
+  const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
+
+  const getSignedImageUrl = async (path: string): Promise<string> => {
+    // Check cache first
+    if (imageUrls[path]) return imageUrls[path];
+    
+    const { data, error } = await supabase.storage
       .from('payment-proofs')
-      .getPublicUrl(path);
-    return data.publicUrl;
+      .createSignedUrl(path, 3600); // 1 hour expiry
+    
+    if (error || !data?.signedUrl) {
+      console.error('Error getting signed URL:', error);
+      return '';
+    }
+    
+    setImageUrls(prev => ({ ...prev, [path]: data.signedUrl }));
+    return data.signedUrl;
   };
+
+  // Load image URLs when payments change
+  useEffect(() => {
+    const loadImageUrls = async () => {
+      for (const payment of payments) {
+        if (!imageUrls[payment.proof_image_url]) {
+          await getSignedImageUrl(payment.proof_image_url);
+        }
+      }
+    };
+    if (payments.length > 0) {
+      loadImageUrls();
+    }
+  }, [payments]);
 
   const handleApproveClick = (payment: PaymentRequest) => {
     setApprovingPayment(payment);
@@ -315,11 +341,17 @@ const Admin = () => {
                       onClick={() => setViewingImage(payment.proof_image_url)}
                       className="w-20 h-20 rounded-lg bg-secondary overflow-hidden flex-shrink-0 hover:opacity-80 transition-opacity"
                     >
-                      <img
-                        src={getImageUrl(payment.proof_image_url)}
-                        alt="Payment proof"
-                        className="w-full h-full object-cover"
-                      />
+                      {imageUrls[payment.proof_image_url] ? (
+                        <img
+                          src={imageUrls[payment.proof_image_url]}
+                          alt="Payment proof"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                        </div>
+                      )}
                     </button>
 
                     {/* Details */}
@@ -433,13 +465,17 @@ const Admin = () => {
           <DialogHeader>
             <DialogTitle>Payment Proof</DialogTitle>
           </DialogHeader>
-          {viewingImage && (
+          {viewingImage && imageUrls[viewingImage] ? (
             <img
-              src={getImageUrl(viewingImage)}
+              src={imageUrls[viewingImage]}
               alt="Payment proof"
               className="w-full rounded-lg"
             />
-          )}
+          ) : viewingImage ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            </div>
+          ) : null}
         </DialogContent>
       </Dialog>
 
