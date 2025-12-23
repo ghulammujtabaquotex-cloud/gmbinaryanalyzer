@@ -1,5 +1,5 @@
-import { useState, useRef } from 'react';
-import { ArrowLeft, Upload, ImageIcon, Loader2, X } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { ArrowLeft, Upload, ImageIcon, Loader2, X, History } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -13,14 +13,25 @@ interface PaymentProofUploadProps {
   onBack: () => void;
 }
 
+const PAYMENT_TOKEN_KEY = 'gm_payment_access_token';
+
 export const PaymentProofUpload = ({ onBack }: PaymentProofUploadProps) => {
   const [isUploading, setIsUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [isSubmitted, setIsSubmitted] = useState(false);
   const [accessToken, setAccessToken] = useState('');
+  const [showTracker, setShowTracker] = useState(false);
   const [email, setEmail] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Check for existing payment token on mount
+  useEffect(() => {
+    const savedToken = localStorage.getItem(PAYMENT_TOKEN_KEY);
+    if (savedToken) {
+      setAccessToken(savedToken);
+      setShowTracker(true);
+    }
+  }, []);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -116,9 +127,10 @@ export const PaymentProofUpload = ({ onBack }: PaymentProofUploadProps) => {
         return;
       }
 
-      // Save the access token for status tracking
+      // Save the access token to localStorage for persistence
+      localStorage.setItem(PAYMENT_TOKEN_KEY, insertedData.access_token);
       setAccessToken(insertedData.access_token);
-      setIsSubmitted(true);
+      setShowTracker(true);
       toast.success('Payment proof submitted successfully!');
     } catch (error) {
       console.error('Error:', error);
@@ -128,9 +140,24 @@ export const PaymentProofUpload = ({ onBack }: PaymentProofUploadProps) => {
     }
   };
 
-  // Show status tracker after submission
-  if (isSubmitted && accessToken) {
-    return <PaymentStatusTracker accessToken={accessToken} onBack={onBack} />;
+  const handleNewPayment = () => {
+    localStorage.removeItem(PAYMENT_TOKEN_KEY);
+    setAccessToken('');
+    setShowTracker(false);
+    setSelectedFile(null);
+    setPreviewUrl(null);
+    setEmail('');
+  };
+
+  // Show status tracker if we have a token
+  if (showTracker && accessToken) {
+    return (
+      <PaymentStatusTracker 
+        accessToken={accessToken} 
+        onBack={onBack}
+        onNewPayment={handleNewPayment}
+      />
+    );
   }
 
   return (

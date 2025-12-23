@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Loader2, CheckCircle, XCircle, Clock, Copy, Eye, EyeOff } from 'lucide-react';
+import { ArrowLeft, Loader2, CheckCircle, XCircle, Clock, Copy, Eye, EyeOff, PlusCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 interface PaymentStatusTrackerProps {
   accessToken: string;
   onBack: () => void;
+  onNewPayment?: () => void;
 }
 
 type PaymentStatus = 'pending' | 'approved' | 'rejected';
@@ -21,7 +22,7 @@ interface PaymentData {
   created_at: string;
 }
 
-export const PaymentStatusTracker = ({ accessToken, onBack }: PaymentStatusTrackerProps) => {
+export const PaymentStatusTracker = ({ accessToken, onBack, onNewPayment }: PaymentStatusTrackerProps) => {
   const navigate = useNavigate();
   const [payment, setPayment] = useState<PaymentData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -195,9 +196,15 @@ export const PaymentStatusTracker = ({ accessToken, onBack }: PaymentStatusTrack
                 </a>
               </div>
               
-              <Button onClick={() => navigate('/pricing')} className="w-full">
-                Try Again
-              </Button>
+              {onNewPayment ? (
+                <Button onClick={onNewPayment} className="w-full">
+                  Submit New Payment
+                </Button>
+              ) : (
+                <Button onClick={() => navigate('/pricing')} className="w-full">
+                  Try Again
+                </Button>
+              )}
             </CardContent>
           </Card>
         </main>
@@ -321,9 +328,15 @@ export const PaymentStatusTracker = ({ accessToken, onBack }: PaymentStatusTrack
             <p className="text-muted-foreground mb-6">
               Invalid or expired payment tracking link.
             </p>
-            <Button onClick={() => navigate('/pricing')} className="w-full">
-              Submit Payment
-            </Button>
+            {onNewPayment ? (
+              <Button onClick={onNewPayment} className="w-full">
+                Submit New Payment
+              </Button>
+            ) : (
+              <Button onClick={() => navigate('/pricing')} className="w-full">
+                Submit Payment
+              </Button>
+            )}
           </CardContent>
         </Card>
       </main>
