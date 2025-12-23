@@ -13,6 +13,12 @@ export function sanitizeAnalysisData(data: unknown): AnalysisData {
 
   const raw = data as Record<string, unknown>;
 
+  // Parse and validate winProbability (0-100)
+  let winProbability: number | undefined = undefined;
+  if (typeof raw.winProbability === "number" && !isNaN(raw.winProbability)) {
+    winProbability = Math.max(0, Math.min(100, Math.round(raw.winProbability)));
+  }
+
   return {
     pair: sanitizeString(raw.pair, 20, "Unknown"),
     trend: validateEnum(raw.trend, VALID_TRENDS, "Range"),
@@ -20,6 +26,7 @@ export function sanitizeAnalysisData(data: unknown): AnalysisData {
     supportZone: sanitizeString(raw.supportZone, 50, "Unable to determine"),
     resistanceZone: sanitizeString(raw.resistanceZone, 50, "Unable to determine"),
     explanation: sanitizeString(raw.explanation, 500, "Analysis could not be completed."),
+    winProbability,
   };
 }
 
