@@ -1,7 +1,6 @@
 // Payment configuration
-// IMPORTANT: Update this with your actual Binance Pay ID
 export const PAYMENT_CONFIG = {
-  binancePayId: 'YOUR_BINANCE_PAY_ID', // Replace with your actual Binance Pay ID
+  binancePayId: '1050153746',
   vipPrice: 19.99,
   currency: 'USDT',
   vipDurationDays: 30, // 1 month
