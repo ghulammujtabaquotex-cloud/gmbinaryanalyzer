@@ -1,10 +1,6 @@
-import { useRef } from "react";
 import { SignalBadge } from "./SignalBadge";
-import { TrendingUp, TrendingDown, Activity, Target, Shield, FileText, AlertTriangle, Download, Crown, Gauge } from "lucide-react";
+import { TrendingUp, TrendingDown, Activity, Target, Shield, FileText, AlertTriangle, Crown, Gauge } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
-import html2canvas from "html2canvas";
-import jsPDF from "jspdf";
 
 export interface AnalysisData {
   pair: string;
@@ -13,8 +9,9 @@ export interface AnalysisData {
   supportZone: string;
   resistanceZone: string;
   explanation: string;
-  confidence?: number; // VIP only - 1-10 score
+  confidence?: number;
   isVip?: boolean;
+  signalHistoryId?: string; // ID of the signal in signal_history table
 }
 
 interface AnalysisResultsProps {
@@ -98,56 +95,12 @@ function ConfidenceGauge({ score }: { score: number }) {
 }
 
 export function AnalysisResults({ data, isVip = false }: AnalysisResultsProps) {
-  const resultsRef = useRef<HTMLDivElement>(null);
   const TrendIcon = data.trend === "Uptrend" ? TrendingUp : data.trend === "Downtrend" ? TrendingDown : Activity;
   const trendColor = data.trend === "Uptrend" ? "text-success" : data.trend === "Downtrend" ? "text-destructive" : "text-warning";
   const isTradeSignal = data.signal === "CALL" || data.signal === "PUT";
 
   // Extract confidence from explanation for VIP users
   const confidence = data.confidence || extractConfidence(data.explanation);
-
-  const handleExportPDF = async () => {
-    if (!resultsRef.current) return;
-
-    try {
-      const canvas = await html2canvas(resultsRef.current, {
-        backgroundColor: '#0a0a0a',
-        scale: 2,
-      });
-
-      const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4',
-      });
-
-      const imgWidth = 190;
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
-      // Add title
-      pdf.setFontSize(20);
-      pdf.setTextColor(255, 255, 255);
-      pdf.text('GM BINARY PRO - Signal Analysis', 10, 15);
-      
-      // Add date
-      pdf.setFontSize(10);
-      pdf.setTextColor(150, 150, 150);
-      pdf.text(`Generated: ${new Date().toLocaleString()}`, 10, 22);
-
-      // Add image
-      pdf.addImage(imgData, 'PNG', 10, 30, imgWidth, imgHeight);
-
-      // Add VIP badge
-      pdf.setFontSize(12);
-      pdf.setTextColor(255, 200, 0);
-      pdf.text('VIP Analysis Report', 10, 35 + imgHeight);
-
-      pdf.save(`gmbinarypro-${data.pair.replace('/', '-')}-${Date.now()}.pdf`);
-    } catch (error) {
-      console.error('PDF export error:', error);
-    }
-  };
 
   return (
     <div className="space-y-4">
@@ -162,7 +115,7 @@ export function AnalysisResults({ data, isVip = false }: AnalysisResultsProps) {
         </div>
       )}
 
-      <div ref={resultsRef} className="space-y-4">
+      <div className="space-y-4">
         {/* Signal - Featured prominently */}
         <div 
           className="p-6 rounded-xl glass-card gradient-border text-center opacity-0 animate-slide-up"
@@ -241,28 +194,10 @@ export function AnalysisResults({ data, isVip = false }: AnalysisResultsProps) {
         </div>
       </div>
 
-      {/* PDF Export - VIP Only */}
-      {isVip && (
-        <div 
-          className="flex justify-center opacity-0 animate-slide-up"
-          style={{ animationDelay: "350ms" }}
-        >
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleExportPDF}
-            className="border-primary/50 text-primary hover:bg-primary/10"
-          >
-            <Download className="w-4 h-4 mr-2" />
-            Export as PDF
-          </Button>
-        </div>
-      )}
-
       {/* Disclaimer */}
       <div 
         className="p-4 rounded-lg bg-warning/5 border border-warning/20 opacity-0 animate-slide-up"
-        style={{ animationDelay: "400ms" }}
+        style={{ animationDelay: "350ms" }}
       >
         <p className="text-xs text-warning/80 text-center">
           ⚠️ This is analysis only, not financial advice. Past patterns don't guarantee future results. Trade responsibly.

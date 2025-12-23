@@ -639,16 +639,18 @@ serve(async (req) => {
 
     // ONLY increment usage for CALL or PUT signals, NOT for NEUTRAL
     let finalRemaining = remaining;
+    let signalHistoryId: string | null = null;
+    
     if (analysis.signal === "CALL" || analysis.signal === "PUT") {
       const { remaining: newRemaining } = await incrementIPUsage(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, clientIP, dailyLimit);
       finalRemaining = newRemaining;
       console.log("CALL/PUT signal - usage incremented, remaining:", finalRemaining);
 
-      // Save signal to history for VIP users
+      // Save signal to history for VIP users and get the ID
       if (isVip && userId) {
         try {
           const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-          const { error: historyError } = await supabaseAdmin
+          const { data: insertedSignal, error: historyError } = await supabaseAdmin
             .from('signal_history')
             .insert({
               user_id: userId,
@@ -660,12 +662,15 @@ serve(async (req) => {
               explanation: analysis.explanation,
               confidence: confidence,
               result: null // Will be updated when user submits result
-            });
+            })
+            .select('id')
+            .single();
 
           if (historyError) {
             console.error("Error saving signal history:", historyError);
-          } else {
-            console.log("Signal saved to history for VIP user:", userId.slice(0, 8) + "...");
+          } else if (insertedSignal) {
+            signalHistoryId = insertedSignal.id;
+            console.log("Signal saved to history for VIP user:", userId.slice(0, 8) + "...", "ID:", signalHistoryId);
           }
         } catch (histErr) {
           console.error("Failed to save signal history:", histErr);
@@ -680,7 +685,8 @@ serve(async (req) => {
       remaining: finalRemaining,
       isVip,
       dailyLimit,
-      confidence
+      confidence,
+      signalHistoryId
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
