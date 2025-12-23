@@ -6,11 +6,13 @@ import { LoadingAnalysis } from "@/components/LoadingAnalysis";
 import { UsageWarning } from "@/components/UsageWarning";
 import { FeedbackPrompt } from "@/components/FeedbackPrompt";
 import { Button } from "@/components/ui/button";
-import { Activity, BarChart3, Zap, Trophy, ExternalLink } from "lucide-react";
+import { Activity, BarChart3, Zap, Trophy, ExternalLink, Crown, Settings } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { sanitizeAnalysisData } from "@/lib/validateAnalysis";
 import { useIPUsageTracking } from "@/hooks/useIPUsageTracking";
+import { useAuth } from "@/hooks/useAuth";
+import { useAdmin } from "@/hooks/useAdmin";
 
 const Index = () => {
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
@@ -20,7 +22,9 @@ const Index = () => {
   const [showVIPNotice, setShowVIPNotice] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { remaining, dailyLimit, canAnalyze, isLoading: usageLoading, updateFromResponse, limitReached } = useIPUsageTracking();
+  const { remaining, dailyLimit, canAnalyze, isLoading: usageLoading, updateFromResponse, limitReached, isVip } = useIPUsageTracking();
+  const { user } = useAuth();
+  const { isAdmin } = useAdmin();
 
   const fileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -215,7 +219,21 @@ const Index = () => {
                 <p className="text-xs text-muted-foreground">Binary Trading Chart Analyzer</p>
               </div>
             </div>
-            <div className="flex items-center gap-2 sm:gap-4">
+            <div className="flex items-center gap-2 sm:gap-3">
+              {/* Admin Panel Link */}
+              {isAdmin && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => navigate("/admin")}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  <Settings className="w-4 h-4 mr-1 sm:mr-2" />
+                  <span className="hidden sm:inline">Admin</span>
+                </Button>
+              )}
+              
+              {/* Results Link */}
               <Button
                 variant="ghost"
                 size="sm"
@@ -225,6 +243,32 @@ const Index = () => {
                 <Trophy className="w-4 h-4 mr-1 sm:mr-2" />
                 <span className="hidden sm:inline">Results</span>
               </Button>
+              
+              {/* VIP / Pricing Link */}
+              <Button
+                variant={isVip ? "ghost" : "outline"}
+                size="sm"
+                onClick={() => navigate("/pricing")}
+                className={isVip 
+                  ? "text-primary hover:text-primary/80" 
+                  : "border-primary/50 text-primary hover:bg-primary/10"
+                }
+              >
+                <Crown className="w-4 h-4 mr-1 sm:mr-2" />
+                <span className="hidden sm:inline">{isVip ? "VIP" : "Upgrade"}</span>
+              </Button>
+              
+              {/* Auth Link */}
+              {!user && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => navigate("/auth")}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  Login
+                </Button>
+              )}
             </div>
           </div>
         </div>
@@ -249,7 +293,7 @@ const Index = () => {
 
           {/* Usage Warning */}
           <div className="flex justify-center">
-            <UsageWarning remaining={remaining} dailyLimit={dailyLimit} />
+            <UsageWarning remaining={remaining} dailyLimit={dailyLimit} isVip={isVip} />
           </div>
 
           {/* VIP Notice */}
