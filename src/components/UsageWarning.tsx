@@ -58,38 +58,16 @@ export const UsageWarning = ({ remaining, dailyLimit, isVip }: UsageWarningProps
     );
   }
 
-  const usedPercentage = ((dailyLimit - remaining) / dailyLimit) * 100;
-  
-  let bgColor = "bg-primary/10 border-primary/20";
-  let textColor = "text-primary";
-  
-  if (remaining <= 1) {
-    bgColor = "bg-destructive/10 border-destructive/20";
-    textColor = "text-destructive";
-  } else if (remaining <= 2) {
-    bgColor = "bg-amber-500/10 border-amber-500/20";
-    textColor = "text-amber-500";
-  }
-
+  // Show Upgrade prompt for free users instead of limit
   return (
-    <div className={`flex items-center justify-center gap-2 px-4 py-2 rounded-lg ${bgColor} border text-sm flex-wrap`}>
-      {remaining <= 1 && <AlertTriangle className={`w-4 h-4 ${textColor}`} />}
-      <span className={textColor}>
-        <span className="font-semibold">{remaining}</span> of {dailyLimit} analysis remaining today
+    <div className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-primary/10 border-primary/20 border text-sm">
+      <Crown className="w-4 h-4 text-primary" />
+      <span className="text-primary">
+        Want premium features?
       </span>
-      <div className="w-24 h-2 bg-background/50 rounded-full overflow-hidden ml-2">
-        <div 
-          className={`h-full transition-all duration-300 ${
-            remaining <= 1 ? "bg-destructive" : remaining <= 2 ? "bg-amber-500" : "bg-primary"
-          }`}
-          style={{ width: `${usedPercentage}%` }}
-        />
-      </div>
-      {remaining <= 2 && (
-        <Link to="/pricing" className="text-primary hover:underline ml-2 font-medium">
-          Upgrade to VIP
-        </Link>
-      )}
+      <Link to="/pricing" className="text-primary hover:underline ml-1 font-semibold">
+        Upgrade to VIP
+      </Link>
     </div>
   );
 };
