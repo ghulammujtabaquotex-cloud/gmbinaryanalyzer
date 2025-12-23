@@ -7,6 +7,7 @@ import { UsageWarning } from "@/components/UsageWarning";
 import { FeedbackPrompt } from "@/components/FeedbackPrompt";
 import { PersonalStats } from "@/components/PersonalStats";
 import { SignalHistory } from "@/components/SignalHistory";
+import { GlobalAnalysisCounter } from "@/components/GlobalAnalysisCounter";
 import { Button } from "@/components/ui/button";
 import { Activity, BarChart3, Zap, Trophy, ExternalLink, Crown, Settings } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -284,8 +285,11 @@ const Index = () => {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8 max-w-4xl flex-1">
         <div className="space-y-8">
+          {/* Global Analysis Counter - Live Badge */}
+          <GlobalAnalysisCounter />
+
           {/* Hero Section */}
-          <div className="text-center space-y-4 py-8">
+          <div className="text-center space-y-4 py-4">
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 text-primary text-sm font-medium">
               <Zap className="w-4 h-4" />
               1-Minute Timeframe Analysis
