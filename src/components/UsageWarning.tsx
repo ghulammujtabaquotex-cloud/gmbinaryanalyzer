@@ -58,16 +58,21 @@ export const UsageWarning = ({ remaining, dailyLimit, isVip }: UsageWarningProps
     );
   }
 
-  // Show Upgrade prompt for free users instead of limit
+  // Show broker signup message for free users
   return (
-    <div className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-primary/10 border-primary/20 border text-sm">
-      <Crown className="w-4 h-4 text-primary" />
-      <span className="text-primary">
-        Want premium features?
+    <div className="flex flex-col items-center justify-center gap-1 px-4 py-3 rounded-lg bg-primary/10 border-primary/20 border text-sm text-center">
+      <span className="text-muted-foreground">
+        OR CREATE ACCOUNT WITH THIS LINK{" "}
+        <a
+          href="https://broker-qx.pro/sign-up/?lid=1416949"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-primary font-bold hover:underline"
+        >
+          CLICK HERE
+        </a>{" "}
+        AND SEND TRADER ID: WHATSAPP +923313063104
       </span>
-      <Link to="/pricing" className="text-primary hover:underline ml-1 font-semibold">
-        Upgrade to VIP
-      </Link>
     </div>
   );
 };
