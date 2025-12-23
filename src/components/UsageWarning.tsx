@@ -1,5 +1,6 @@
-import { AlertTriangle, Crown } from "lucide-react";
+import { AlertTriangle, Crown, Zap, TrendingUp, BarChart3, FileText, MessageCircle } from "lucide-react";
 import { Link } from "react-router-dom";
+import { PAYMENT_CONFIG } from "@/lib/paymentConfig";
 
 interface UsageWarningProps {
   remaining: number;
@@ -7,12 +8,39 @@ interface UsageWarningProps {
   isVip?: boolean;
 }
 
+const VIP_QUICK_FEATURES = [
+  { icon: Zap, label: "20/day" },
+  { icon: TrendingUp, label: "Priority" },
+  { icon: BarChart3, label: "Multi-TF" },
+  { icon: FileText, label: "PDF Export" },
+  { icon: MessageCircle, label: "Support" },
+];
+
 export const UsageWarning = ({ remaining, dailyLimit, isVip }: UsageWarningProps) => {
   if (isVip) {
     return (
-      <div className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-primary/10 border border-primary/20 text-sm">
-        <Crown className="w-4 h-4 text-primary" />
-        <span className="text-primary font-semibold">VIP Member - Unlimited Analyses</span>
+      <div className="w-full max-w-2xl mx-auto">
+        <div className="rounded-xl bg-gradient-to-r from-primary/20 via-primary/10 to-primary/20 border border-primary/30 p-4 shadow-[0_0_30px_-5px_hsl(var(--primary)/0.3)]">
+          <div className="flex items-center justify-center gap-2 mb-3">
+            <Crown className="w-5 h-5 text-primary animate-pulse" />
+            <span className="text-lg font-bold text-primary">VIP MEMBER</span>
+            <Crown className="w-5 h-5 text-primary animate-pulse" />
+          </div>
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            {VIP_QUICK_FEATURES.map((feature, index) => (
+              <div 
+                key={index}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/20 border border-primary/30"
+              >
+                <feature.icon className="w-3.5 h-3.5 text-primary" />
+                <span className="text-xs font-medium text-primary">{feature.label}</span>
+              </div>
+            ))}
+          </div>
+          <p className="text-center text-xs text-primary/80 mt-3">
+            {PAYMENT_CONFIG.vipDailyLimit} analyses remaining • Advanced features unlocked
+          </p>
+        </div>
       </div>
     );
   }
