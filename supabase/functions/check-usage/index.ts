@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const FREE_DAILY_LIMIT = 3;
+const FREE_DAILY_LIMIT = 999999; // Unlimited for free users (temporarily disabled)
 const VIP_DAILY_LIMIT = 20;
 
 // CORS configuration
