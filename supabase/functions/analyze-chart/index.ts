@@ -557,12 +557,47 @@ serve(async (req) => {
       };
     }
 
+    // Extract confidence from explanation if present
+    let confidence: number | null = null;
+    const confidenceMatch = analysis.explanation?.match(/Confidence:\s*(\d+)\/10/i);
+    if (confidenceMatch) {
+      confidence = parseInt(confidenceMatch[1], 10);
+    }
+
     // ONLY increment usage for CALL or PUT signals, NOT for NEUTRAL
     let finalRemaining = remaining;
     if (analysis.signal === "CALL" || analysis.signal === "PUT") {
       const { remaining: newRemaining } = await incrementIPUsage(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, clientIP, dailyLimit);
       finalRemaining = newRemaining;
       console.log("CALL/PUT signal - usage incremented, remaining:", finalRemaining);
+
+      // Save signal to history for VIP users
+      if (isVip && userId) {
+        try {
+          const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+          const { error: historyError } = await supabaseAdmin
+            .from('signal_history')
+            .insert({
+              user_id: userId,
+              pair: analysis.pair || 'Unknown',
+              trend: analysis.trend || 'Range',
+              signal: analysis.signal,
+              support_zone: analysis.supportZone,
+              resistance_zone: analysis.resistanceZone,
+              explanation: analysis.explanation,
+              confidence: confidence,
+              result: null // Will be updated when user submits result
+            });
+
+          if (historyError) {
+            console.error("Error saving signal history:", historyError);
+          } else {
+            console.log("Signal saved to history for VIP user:", userId.slice(0, 8) + "...");
+          }
+        } catch (histErr) {
+          console.error("Failed to save signal history:", histErr);
+        }
+      }
     } else {
       console.log("NEUTRAL signal - usage NOT incremented, remaining:", finalRemaining);
     }
@@ -571,7 +606,8 @@ serve(async (req) => {
       ...analysis, 
       remaining: finalRemaining,
       isVip,
-      dailyLimit 
+      dailyLimit,
+      confidence
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
