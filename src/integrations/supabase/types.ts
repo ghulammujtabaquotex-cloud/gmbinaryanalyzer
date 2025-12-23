@@ -70,6 +70,7 @@ export type Database = {
       }
       payment_requests: {
         Row: {
+          access_token: string | null
           admin_notes: string | null
           amount: number
           created_at: string
@@ -83,6 +84,7 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          access_token?: string | null
           admin_notes?: string | null
           amount: number
           created_at?: string
@@ -96,6 +98,7 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          access_token?: string | null
           admin_notes?: string | null
           amount?: number
           created_at?: string
@@ -244,6 +247,16 @@ export type Database = {
       check_payment_request_rate: {
         Args: { p_email: string }
         Returns: boolean
+      }
+      get_payment_by_token: {
+        Args: { p_token: string }
+        Returns: {
+          created_at: string
+          email: string
+          generated_password: string
+          id: string
+          status: Database["public"]["Enums"]["payment_status"]
+        }[]
       }
       get_trade_statistics: {
         Args: never

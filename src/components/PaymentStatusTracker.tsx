@@ -7,7 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 interface PaymentStatusTrackerProps {
-  email: string;
+  accessToken: string;
   onBack: () => void;
 }
 
@@ -21,7 +21,7 @@ interface PaymentData {
   created_at: string;
 }
 
-export const PaymentStatusTracker = ({ email, onBack }: PaymentStatusTrackerProps) => {
+export const PaymentStatusTracker = ({ accessToken, onBack }: PaymentStatusTrackerProps) => {
   const navigate = useNavigate();
   const [payment, setPayment] = useState<PaymentData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -31,20 +31,18 @@ export const PaymentStatusTracker = ({ email, onBack }: PaymentStatusTrackerProp
 
   const fetchPaymentStatus = async () => {
     try {
+      // Use secure RPC function to get payment by token
       const { data, error } = await supabase
-        .from('payment_requests')
-        .select('id, status, email, generated_password, created_at')
-        .eq('email', email)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .rpc('get_payment_by_token', { p_token: accessToken });
 
       if (error) {
         console.error('Error fetching payment status:', error);
         return;
       }
 
-      setPayment(data as PaymentData | null);
+      // RPC returns array, get first result
+      const paymentData = data?.[0] || null;
+      setPayment(paymentData as PaymentData | null);
     } catch (error) {
       console.error('Error:', error);
     } finally {
@@ -53,6 +51,11 @@ export const PaymentStatusTracker = ({ email, onBack }: PaymentStatusTrackerProp
   };
 
   useEffect(() => {
+    if (!accessToken) {
+      setIsLoading(false);
+      return;
+    }
+
     fetchPaymentStatus();
 
     // Poll for status updates every 5 seconds while pending
@@ -63,7 +66,7 @@ export const PaymentStatusTracker = ({ email, onBack }: PaymentStatusTrackerProp
     }, 5000);
 
     return () => clearInterval(interval);
-  }, [email, payment?.status]);
+  }, [accessToken, payment?.status]);
 
   const copyToClipboard = async (text: string, type: 'email' | 'password') => {
     try {
@@ -124,6 +127,11 @@ export const PaymentStatusTracker = ({ email, onBack }: PaymentStatusTrackerProp
               <p className="text-muted-foreground mb-6">
                 You'll see your login credentials here once approved.
               </p>
+              <div className="bg-secondary/50 rounded-lg p-3 mb-4">
+                <p className="text-xs text-muted-foreground">
+                  Save this page URL to check your status later
+                </p>
+              </div>
               <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
                 <Loader2 className="w-4 h-4 animate-spin" />
                 <span>Checking for updates...</span>
@@ -217,12 +225,12 @@ export const PaymentStatusTracker = ({ email, onBack }: PaymentStatusTrackerProp
                   <p className="text-sm text-muted-foreground mb-2">Email</p>
                   <div className="flex items-center gap-2">
                     <code className="bg-background px-3 py-2 rounded-lg text-foreground font-mono text-sm flex-1 truncate">
-                      {email}
+                      {payment.email}
                     </code>
                     <Button 
                       size="sm" 
                       variant="outline" 
-                      onClick={() => copyToClipboard(email, 'email')}
+                      onClick={() => copyToClipboard(payment.email, 'email')}
                     >
                       {copiedEmail ? <CheckCircle className="w-4 h-4 text-success" /> : <Copy className="w-4 h-4" />}
                     </Button>
@@ -291,7 +299,7 @@ export const PaymentStatusTracker = ({ email, onBack }: PaymentStatusTrackerProp
         <Card className="glass-card max-w-md w-full">
           <CardContent className="p-8 text-center">
             <p className="text-muted-foreground mb-6">
-              No payment request found for this email.
+              Invalid or expired payment tracking link.
             </p>
             <Button onClick={() => navigate('/pricing')} className="w-full">
               Submit Payment
