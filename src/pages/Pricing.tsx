@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { useSubscription } from '@/hooks/useSubscription';
 import { PAYMENT_CONFIG, VIP_FEATURES } from '@/lib/paymentConfig';
 import { PaymentProofUpload } from '@/components/PaymentProofUpload';
+import { PaymentHistory } from '@/components/PaymentHistory';
 import { toast } from 'sonner';
 import pakistanBankQR from '@/assets/pakistan-bank-qr.jpeg';
 
@@ -356,6 +357,9 @@ const Pricing = () => {
             Get 20 daily analyses and exclusive VIP features to maximize your trading potential
           </p>
         </div>
+
+        {/* Payment History */}
+        <PaymentHistory />
 
         {/* Already VIP */}
         {isVip && (
