@@ -179,6 +179,33 @@ export type Database = {
         }
         Relationships: []
       }
+      submission_usage: {
+        Row: {
+          created_at: string
+          id: string
+          ip_address: string
+          submission_count: number
+          updated_at: string
+          usage_date: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          ip_address: string
+          submission_count?: number
+          updated_at?: string
+          usage_date?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          ip_address?: string
+          submission_count?: number
+          updated_at?: string
+          usage_date?: string
+        }
+        Relationships: []
+      }
       subscriptions: {
         Row: {
           created_at: string
@@ -257,6 +284,17 @@ export type Database = {
     }
     Functions: {
       atomic_increment_ip_usage: {
+        Args: {
+          p_daily_limit: number
+          p_ip_address: string
+          p_usage_date: string
+        }
+        Returns: {
+          allowed: boolean
+          remaining: number
+        }[]
+      }
+      atomic_increment_submission: {
         Args: {
           p_daily_limit: number
           p_ip_address: string
