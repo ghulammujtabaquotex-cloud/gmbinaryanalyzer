@@ -100,7 +100,15 @@ export const UsageWarning = ({ remaining, dailyLimit, isVip }: UsageWarningProps
             >
               CLICK HERE
             </a>{" "}
-            AND SEND TRADER ID: WHATSAPP +923313063104
+            AND SEND TRADER ID:{" "}
+            <a
+              href="https://wa.me/923313063104"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-success font-bold hover:underline"
+            >
+              WhatsApp +923313063104
+            </a>
           </p>
         </div>
       </div>
