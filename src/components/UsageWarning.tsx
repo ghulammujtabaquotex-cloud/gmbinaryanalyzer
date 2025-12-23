@@ -18,6 +18,8 @@ const VIP_QUICK_FEATURES = [
 
 export const UsageWarning = ({ remaining, dailyLimit, isVip }: UsageWarningProps) => {
   if (isVip) {
+    const usedPercentage = ((dailyLimit - remaining) / dailyLimit) * 100;
+    
     return (
       <div className="w-full max-w-2xl mx-auto">
         <div className="rounded-xl bg-gradient-to-r from-primary/20 via-primary/10 to-primary/20 border border-primary/30 p-4 shadow-[0_0_30px_-5px_hsl(var(--primary)/0.3)]">
@@ -37,9 +39,20 @@ export const UsageWarning = ({ remaining, dailyLimit, isVip }: UsageWarningProps
               </div>
             ))}
           </div>
-          <p className="text-center text-xs text-primary/80 mt-3">
-            {PAYMENT_CONFIG.vipDailyLimit} analyses remaining • Advanced features unlocked
-          </p>
+          {/* Show actual remaining count for VIP */}
+          <div className="mt-3 space-y-2">
+            <div className="flex items-center justify-center gap-2 text-sm">
+              <span className="text-primary/80">
+                <span className="font-bold text-primary">{remaining}</span> of {dailyLimit} analyses remaining today
+              </span>
+            </div>
+            <div className="w-full max-w-xs mx-auto h-2 bg-background/50 rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-primary transition-all duration-300"
+                style={{ width: `${usedPercentage}%` }}
+              />
+            </div>
+          </div>
         </div>
       </div>
     );
