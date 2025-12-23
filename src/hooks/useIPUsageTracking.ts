@@ -6,41 +6,15 @@ import { PAYMENT_CONFIG } from "@/lib/paymentConfig";
 export const useIPUsageTracking = () => {
   const { user } = useAuth();
   const [usageCount, setUsageCount] = useState(0);
+  const [dailyLimit, setDailyLimit] = useState(PAYMENT_CONFIG.freeDailyLimit);
   const [isLoading, setIsLoading] = useState(true);
   const [limitReached, setLimitReached] = useState(false);
   const [isVip, setIsVip] = useState(false);
 
-  const dailyLimit = isVip ? PAYMENT_CONFIG.vipDailyLimit : PAYMENT_CONFIG.freeDailyLimit;
-
   const fetchUsage = useCallback(async () => {
     try {
-      // Check VIP status first if user is logged in
-      if (user) {
-        const { data: subData } = await supabase
-          .from('subscriptions')
-          .select('tier, expires_at')
-          .eq('user_id', user.id)
-          .maybeSingle();
-
-        if (subData && subData.tier === 'vip') {
-          const isActive = !subData.expires_at || new Date(subData.expires_at) > new Date();
-          if (isActive) {
-            setIsVip(true);
-            // VIP users still have a limit, fetch their usage
-            const { data, error } = await supabase.functions.invoke("check-usage");
-            if (!error && data) {
-              setUsageCount(data.usageCount ?? 0);
-              setLimitReached(data.usageCount >= PAYMENT_CONFIG.vipDailyLimit);
-            }
-            setIsLoading(false);
-            return;
-          }
-        }
-      }
-
-      setIsVip(false);
-
       // Call server-side edge function to get real IP usage
+      // The edge function will check VIP status from the auth token
       const { data, error } = await supabase.functions.invoke("check-usage");
 
       if (error) {
@@ -49,12 +23,29 @@ export const useIPUsageTracking = () => {
         }
         setUsageCount(0);
         setLimitReached(false);
+        setIsVip(false);
+        setDailyLimit(PAYMENT_CONFIG.freeDailyLimit);
         return;
       }
       
       if (data) {
-        setUsageCount(data.usageCount ?? 0);
-        setLimitReached(data.usageCount >= PAYMENT_CONFIG.freeDailyLimit);
+        const serverDailyLimit = data.dailyLimit ?? PAYMENT_CONFIG.freeDailyLimit;
+        const serverIsVip = data.isVip ?? false;
+        const serverUsageCount = data.usageCount ?? 0;
+        
+        setUsageCount(serverUsageCount);
+        setDailyLimit(serverDailyLimit);
+        setIsVip(serverIsVip);
+        setLimitReached(serverUsageCount >= serverDailyLimit);
+        
+        if (import.meta.env.DEV) {
+          console.log("Usage data:", { 
+            usageCount: serverUsageCount, 
+            dailyLimit: serverDailyLimit, 
+            isVip: serverIsVip,
+            remaining: data.remaining 
+          });
+        }
       }
     } catch (error) {
       if (import.meta.env.DEV) {
@@ -62,10 +53,12 @@ export const useIPUsageTracking = () => {
       }
       setUsageCount(0);
       setLimitReached(false);
+      setIsVip(false);
+      setDailyLimit(PAYMENT_CONFIG.freeDailyLimit);
     } finally {
       setIsLoading(false);
     }
-  }, [user]);
+  }, []);
 
   useEffect(() => {
     const scheduleRequest = () => {
@@ -76,7 +69,7 @@ export const useIPUsageTracking = () => {
       }
     };
     scheduleRequest();
-  }, [fetchUsage]);
+  }, [fetchUsage, user]); // Re-fetch when user changes (login/logout)
 
   const updateFromResponse = (remaining: number, isLimitReached: boolean = false) => {
     setUsageCount(dailyLimit - remaining);

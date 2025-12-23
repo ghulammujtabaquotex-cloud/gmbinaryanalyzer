@@ -1,6 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const DAILY_LIMIT = 5;
+const FREE_DAILY_LIMIT = 3;
+const VIP_DAILY_LIMIT = 20;
 
 // CORS configuration with strict regex validation to prevent subdomain bypass attacks
 const getAllowedOrigin = (requestOrigin: string | null): string => {
@@ -25,79 +27,108 @@ const getAllowedOrigin = (requestOrigin: string | null): string => {
   return "https://rbqafiykevtbgztczizr.lovableproject.com";
 };
 
-const systemPrompt = `You are a PROFESSIONAL binary options price action analyst with 15+ years experience. Your analysis must be CONSISTENT and RELIABLE.
+// Basic system prompt for free users
+const freeSystemPrompt = `You are a binary options price action analyst. Analyze the chart and provide a trading signal.
+
+## ANALYSIS METHOD
+1. Identify the trend from last 20-30 candles
+2. Find support and resistance zones
+3. Analyze last 3-5 candles for entry patterns
+
+## RESPONSE FORMAT
+Respond with valid JSON only:
+{
+  "pair": "SYMBOL/QUOTE",
+  "trend": "Uptrend" | "Downtrend" | "Range",
+  "signal": "CALL" | "PUT" | "NEUTRAL",
+  "supportZone": "price level",
+  "resistanceZone": "price level", 
+  "explanation": "Brief analysis"
+}`;
+
+// Enhanced system prompt for VIP users - more detailed and professional
+const vipSystemPrompt = `You are a PROFESSIONAL binary options price action analyst with 15+ years experience. Your analysis must be CONSISTENT, RELIABLE, and HIGHLY ACCURATE.
 
 ## CRITICAL CONSISTENCY RULE
 For the SAME chart, you MUST always give the SAME signal. Your analysis is based on OBJECTIVE technical factors, not randomness. Focus on what the chart SHOWS, not guesses.
 
-## ANALYSIS METHOD (Follow This Order)
+## ADVANCED VIP ANALYSIS METHOD (Follow This Order)
 
-### STEP 1: IDENTIFY THE DOMINANT TREND (Most Important)
+### STEP 1: MULTI-TIMEFRAME CONTEXT
+Even though this is a 1-minute chart, consider:
+- Overall market structure (trending or ranging)
+- Position relative to recent swing highs/lows
+- Volume analysis if visible
+
+### STEP 2: IDENTIFY THE DOMINANT TREND (Most Important)
 Look at the LAST 20-30 candles:
 - COUNT: How many candles closed GREEN vs RED?
 - STRUCTURE: Are there Higher Highs + Higher Lows (UPTREND) or Lower Highs + Lower Lows (DOWNTREND)?
 - STRENGTH: Is the trend strong (consecutive same-color candles) or weak (alternating)?
+- MOMENTUM: Are the candles getting larger (increasing momentum) or smaller (decreasing)?
 
 TREND DECISION:
 - 60%+ green candles with HH+HL structure = UPTREND → Bias CALL
 - 60%+ red candles with LH+LL structure = DOWNTREND → Bias PUT  
-- No clear structure = RANGE
+- No clear structure = RANGE → Be extra careful
 
-### STEP 2: FIND KEY SUPPORT/RESISTANCE ZONES
-- SUPPORT: Price level where price bounced UP at least 2 times
-- RESISTANCE: Price level where price rejected DOWN at least 2 times
+### STEP 3: FIND KEY SUPPORT/RESISTANCE ZONES
+- SUPPORT: Price level where price bounced UP at least 2-3 times
+- RESISTANCE: Price level where price rejected DOWN at least 2-3 times
+- Look for CONFLUENCE: Multiple touches, round numbers, previous swing points
 - Note the CURRENT price position relative to these zones
 
-### STEP 3: ANALYZE THE LAST 3-5 CANDLES (Entry Timing)
-Look for CONFIRMATION patterns:
+### STEP 4: ANALYZE CANDLESTICK PATTERNS (Last 3-5 Candles)
+Look for HIGH-PROBABILITY patterns:
+- Pin Bars / Hammer / Shooting Star (long wick rejection)
+- Engulfing patterns (bullish/bearish)
+- Doji at key levels (indecision, potential reversal)
+- Three white soldiers / Three black crows (momentum)
+- Inside bars followed by breakout
 
-FOR CALL SIGNAL (All conditions should align):
-✓ Overall trend is UP or price at SUPPORT
+### STEP 5: ENTRY CONFIRMATION CHECKLIST
+
+FOR CALL SIGNAL (ALL conditions should align):
+✓ Overall trend is UP or price at STRONG SUPPORT
 ✓ Last candle shows bullish sign: green body, long lower wick rejection, or bullish engulfing
-✓ Price is NOT hitting resistance
+✓ Price is NOT hitting immediate resistance
+✓ No bearish divergence patterns
+✓ Volume supports the move (if visible)
 
-FOR PUT SIGNAL (All conditions should align):
-✓ Overall trend is DOWN or price at RESISTANCE  
+FOR PUT SIGNAL (ALL conditions should align):
+✓ Overall trend is DOWN or price at STRONG RESISTANCE  
 ✓ Last candle shows bearish sign: red body, long upper wick rejection, or bearish engulfing
-✓ Price is NOT hitting support
+✓ Price is NOT hitting immediate support
+✓ No bullish divergence patterns
+✓ Volume supports the move (if visible)
 
-### STEP 4: CONFIRMATION CHECKLIST
-Before giving CALL, verify:
-□ Trend supports upward movement
-□ No major resistance directly above
-□ Recent candles show buying pressure
+### STEP 6: CONFIDENCE SCORING
+Rate your confidence (1-10) based on:
+- How many confirmation factors align
+- Clarity of the pattern
+- Strength of support/resistance
+- Trend alignment
 
-Before giving PUT, verify:
-□ Trend supports downward movement  
-□ No major support directly below
-□ Recent candles show selling pressure
+Only give CALL/PUT if confidence is 7+. Otherwise, give NEUTRAL.
 
 ## SIGNAL RULES
 
-GIVE CALL WHEN:
+GIVE CALL WHEN (confidence 7+):
 1. Strong uptrend (HH+HL) + bullish candle pattern, OR
-2. Price bouncing from clear support zone with bullish rejection, OR
-3. Downtrend breaking with strong bullish reversal candles
+2. Price bouncing from STRONG support zone with clear bullish rejection, OR
+3. Downtrend breaking with strong bullish reversal candles + volume
 
-GIVE PUT WHEN:
+GIVE PUT WHEN (confidence 7+):
 1. Strong downtrend (LH+LL) + bearish candle pattern, OR
-2. Price rejecting from clear resistance zone with bearish rejection, OR
-3. Uptrend breaking with strong bearish reversal candles
+2. Price rejecting from STRONG resistance zone with clear bearish rejection, OR
+3. Uptrend breaking with strong bearish reversal candles + volume
 
-GIVE NEUTRAL ONLY WHEN:
-- Price is EXACTLY in the middle of a tight range
-- No visible trend structure at all
+GIVE NEUTRAL WHEN:
+- Confidence below 7
+- Price is in middle of tight range with no clear bias
 - Conflicting signals (bullish trend but at resistance, bearish trend but at support)
 - Chart is unclear, blurry, or has less than 20 candles
-
-## CONSISTENCY GUARANTEE
-Your signal is based on:
-1. Objective candle count (green vs red)
-2. Clear price structure (HH/HL or LH/LL)
-3. Visible support/resistance zones
-4. Last candle pattern
-
-Same chart = Same objective factors = SAME SIGNAL
+- High-impact news period likely
 
 ## RESPONSE FORMAT
 Respond with valid JSON only:
@@ -107,7 +138,7 @@ Respond with valid JSON only:
   "signal": "CALL" | "PUT" | "NEUTRAL",
   "supportZone": "price level or range",
   "resistanceZone": "price level or range", 
-  "explanation": "Trend: [describe trend with candle count]. Structure: [HH/HL or LH/LL]. Last candles: [pattern seen]. Key level: [support/resistance interaction]. Signal reason: [why this direction]."
+  "explanation": "Trend: [describe trend with candle count]. Structure: [HH/HL or LH/LL]. Pattern: [candlestick pattern observed]. Key level: [support/resistance interaction]. Confidence: [X/10]. Signal reason: [why this direction]."
 }`;
 
 // Image magic bytes for validation
@@ -207,11 +238,52 @@ const getClientIP = (req: Request): string => {
   return "unknown";
 };
 
+// Check if user is VIP from their auth token
+const checkVipStatus = async (
+  supabaseUrl: string,
+  anonKey: string,
+  authHeader: string | null
+): Promise<{ isVip: boolean; userId: string | null }> => {
+  if (!authHeader) {
+    return { isVip: false, userId: null };
+  }
+
+  try {
+    // Create client with user's auth token
+    const supabase = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: authHeader } }
+    });
+
+    // Get the user
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
+      console.log("No authenticated user found");
+      return { isVip: false, userId: null };
+    }
+
+    // Check VIP status using the is_vip function
+    const { data: isVip, error: vipError } = await supabase
+      .rpc('is_vip', { _user_id: user.id });
+
+    if (vipError) {
+      console.error("Error checking VIP status:", vipError);
+      return { isVip: false, userId: user.id };
+    }
+
+    console.log(`User ${user.id.slice(0, 8)}... VIP status:`, isVip);
+    return { isVip: !!isVip, userId: user.id };
+  } catch (err) {
+    console.error("Error in checkVipStatus:", err);
+    return { isVip: false, userId: null };
+  }
+};
+
 // Check IP usage without incrementing
 const checkIPUsage = async (
   supabaseUrl: string,
   serviceRoleKey: string,
-  ipAddress: string
+  ipAddress: string,
+  dailyLimit: number
 ): Promise<{ count: number; remaining: number; canAnalyze: boolean }> => {
   const today = new Date().toISOString().split("T")[0];
 
@@ -230,14 +302,14 @@ const checkIPUsage = async (
         body: JSON.stringify({
           p_ip_address: ipAddress,
           p_usage_date: today,
-          p_daily_limit: DAILY_LIMIT,
+          p_daily_limit: dailyLimit,
         }),
       }
     );
 
     if (!rpcResponse.ok) {
       console.error("Check IP usage RPC failed, status:", rpcResponse.status);
-      return { count: 0, remaining: DAILY_LIMIT, canAnalyze: true };
+      return { count: 0, remaining: dailyLimit, canAnalyze: true };
     }
 
     const result = await rpcResponse.json();
@@ -249,10 +321,10 @@ const checkIPUsage = async (
       };
     }
 
-    return { count: 0, remaining: DAILY_LIMIT, canAnalyze: true };
+    return { count: 0, remaining: dailyLimit, canAnalyze: true };
   } catch (err) {
     console.error("Check IP usage error:", err);
-    return { count: 0, remaining: DAILY_LIMIT, canAnalyze: true };
+    return { count: 0, remaining: dailyLimit, canAnalyze: true };
   }
 };
 
@@ -260,7 +332,8 @@ const checkIPUsage = async (
 const incrementIPUsage = async (
   supabaseUrl: string,
   serviceRoleKey: string,
-  ipAddress: string
+  ipAddress: string,
+  dailyLimit: number
 ): Promise<{ allowed: boolean; remaining: number }> => {
   const today = new Date().toISOString().split("T")[0];
 
@@ -279,7 +352,7 @@ const incrementIPUsage = async (
         body: JSON.stringify({
           p_ip_address: ipAddress,
           p_usage_date: today,
-          p_daily_limit: DAILY_LIMIT,
+          p_daily_limit: dailyLimit,
         }),
       }
     );
@@ -318,8 +391,9 @@ serve(async (req) => {
   try {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY");
     
-    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || !SUPABASE_ANON_KEY) {
       console.error("ERR_CONFIG: Missing Supabase config");
       return new Response(
         JSON.stringify({ error: "Service temporarily unavailable. Please try again later." }),
@@ -331,15 +405,24 @@ serve(async (req) => {
     const clientIP = getClientIP(req);
     console.log("Processing request from IP:", clientIP.slice(0, 10) + "***");
 
+    // Check VIP status from auth header
+    const authHeader = req.headers.get("authorization");
+    const { isVip, userId } = await checkVipStatus(SUPABASE_URL, SUPABASE_ANON_KEY, authHeader);
+    
+    // Set limits based on VIP status
+    const dailyLimit = isVip ? VIP_DAILY_LIMIT : FREE_DAILY_LIMIT;
+    console.log(`User type: ${isVip ? 'VIP' : 'FREE'}, Daily limit: ${dailyLimit}`);
+
     // Check current usage (without incrementing)
-    const { remaining, canAnalyze } = await checkIPUsage(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, clientIP);
+    const { remaining, canAnalyze } = await checkIPUsage(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, clientIP, dailyLimit);
     
     if (!canAnalyze) {
       return new Response(
         JSON.stringify({ 
           error: "Daily limit reached",
           limitReached: true,
-          message: "JOIN VIP FOR MORE CREDIT"
+          message: isVip ? "VIP daily limit reached. Try again tomorrow!" : "JOIN VIP FOR MORE CREDIT",
+          isVip
         }),
         { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
@@ -365,7 +448,18 @@ serve(async (req) => {
       );
     }
 
-    console.log("Processing analysis request, remaining before:", remaining);
+    console.log("Processing analysis request, remaining before:", remaining, "isVip:", isVip);
+
+    // Choose model and prompt based on VIP status
+    // VIP users get gemini-2.5-pro for better accuracy
+    // Free users get gemini-2.5-flash for faster but less accurate results
+    const model = isVip ? "google/gemini-2.5-pro" : "google/gemini-2.5-flash";
+    const systemPrompt = isVip ? vipSystemPrompt : freeSystemPrompt;
+    const analysisInstruction = isVip
+      ? "Analyze this trading chart using your advanced VIP 6-step method: 1) Consider multi-timeframe context, 2) Count candles and identify trend structure with momentum analysis, 3) Mark confluence support/resistance zones, 4) Identify high-probability candlestick patterns, 5) Run your entry confirmation checklist, 6) Score your confidence (only signal if 7+). Your analysis must be HIGHLY ACCURATE and REPRODUCIBLE. Focus on what the chart SHOWS. Respond with JSON only."
+      : "Analyze this trading chart: identify the trend, find support and resistance, check last candles for patterns. Respond with JSON only.";
+
+    console.log(`Using model: ${model} for ${isVip ? 'VIP' : 'FREE'} user`);
 
     // Add timeout for AI gateway request (55 seconds)
     const controller = new AbortController();
@@ -381,7 +475,7 @@ serve(async (req) => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "google/gemini-2.5-flash",
+          model: model,
           messages: [
             { role: "system", content: systemPrompt },
             {
@@ -389,7 +483,7 @@ serve(async (req) => {
               content: [
               {
                   type: "text",
-                  text: "Analyze this trading chart using your systematic 4-step method: 1) Count green vs red candles in last 20-30 bars and identify trend structure (HH/HL or LH/LL), 2) Mark support and resistance zones where price bounced/rejected multiple times, 3) Analyze last 3-5 candles for entry confirmation patterns, 4) Run your confirmation checklist before deciding. Your analysis must be OBJECTIVE and REPRODUCIBLE - the same chart analyzed again must give the same signal. Focus on what the chart SHOWS, not guesses. Respond with JSON only.",
+                  text: analysisInstruction,
                 },
                 {
                   type: "image_url",
@@ -466,14 +560,19 @@ serve(async (req) => {
     // ONLY increment usage for CALL or PUT signals, NOT for NEUTRAL
     let finalRemaining = remaining;
     if (analysis.signal === "CALL" || analysis.signal === "PUT") {
-      const { remaining: newRemaining } = await incrementIPUsage(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, clientIP);
+      const { remaining: newRemaining } = await incrementIPUsage(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, clientIP, dailyLimit);
       finalRemaining = newRemaining;
       console.log("CALL/PUT signal - usage incremented, remaining:", finalRemaining);
     } else {
       console.log("NEUTRAL signal - usage NOT incremented, remaining:", finalRemaining);
     }
 
-    return new Response(JSON.stringify({ ...analysis, remaining: finalRemaining }), {
+    return new Response(JSON.stringify({ 
+      ...analysis, 
+      remaining: finalRemaining,
+      isVip,
+      dailyLimit 
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {

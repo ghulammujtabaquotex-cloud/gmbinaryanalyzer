@@ -1,6 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const DAILY_LIMIT = 5;
+const FREE_DAILY_LIMIT = 3;
+const VIP_DAILY_LIMIT = 20;
 
 // CORS configuration
 const getAllowedOrigin = (requestOrigin: string | null): string => {
@@ -45,6 +47,44 @@ const getClientIP = (req: Request): string => {
   return "unknown";
 };
 
+// Check if user is VIP from their auth token
+const checkVipStatus = async (
+  supabaseUrl: string,
+  anonKey: string,
+  authHeader: string | null
+): Promise<{ isVip: boolean; userId: string | null }> => {
+  if (!authHeader) {
+    return { isVip: false, userId: null };
+  }
+
+  try {
+    // Create client with user's auth token
+    const supabase = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: authHeader } }
+    });
+
+    // Get the user
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
+      return { isVip: false, userId: null };
+    }
+
+    // Check VIP status using the is_vip function
+    const { data: isVip, error: vipError } = await supabase
+      .rpc('is_vip', { _user_id: user.id });
+
+    if (vipError) {
+      console.error("Error checking VIP status:", vipError);
+      return { isVip: false, userId: user.id };
+    }
+
+    return { isVip: !!isVip, userId: user.id };
+  } catch (err) {
+    console.error("Error in checkVipStatus:", err);
+    return { isVip: false, userId: null };
+  }
+};
+
 serve(async (req) => {
   const origin = req.headers.get("origin");
   const corsHeaders = {
@@ -59,8 +99,9 @@ serve(async (req) => {
   try {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY");
     
-    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || !SUPABASE_ANON_KEY) {
       console.error("Missing Supabase config");
       return new Response(
         JSON.stringify({ error: "Service unavailable" }),
@@ -72,6 +113,14 @@ serve(async (req) => {
     const today = new Date().toISOString().split("T")[0];
 
     console.log("Checking usage for IP:", clientIP.slice(0, 10) + "***");
+
+    // Check VIP status from auth header
+    const authHeader = req.headers.get("authorization");
+    const { isVip } = await checkVipStatus(SUPABASE_URL, SUPABASE_ANON_KEY, authHeader);
+    
+    // Set limits based on VIP status
+    const dailyLimit = isVip ? VIP_DAILY_LIMIT : FREE_DAILY_LIMIT;
+    console.log(`User type: ${isVip ? 'VIP' : 'FREE'}, Daily limit: ${dailyLimit}`);
 
     const headers = {
       "apikey": SUPABASE_SERVICE_ROLE_KEY,
@@ -87,7 +136,7 @@ serve(async (req) => {
         body: JSON.stringify({
           p_ip_address: clientIP,
           p_usage_date: today,
-          p_daily_limit: DAILY_LIMIT,
+          p_daily_limit: dailyLimit,
         }),
       }
     );
@@ -98,9 +147,10 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ 
           usageCount: 0, 
-          remaining: DAILY_LIMIT, 
+          remaining: dailyLimit, 
           canAnalyze: true,
-          dailyLimit: DAILY_LIMIT
+          dailyLimit: dailyLimit,
+          isVip
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
@@ -114,7 +164,8 @@ serve(async (req) => {
           usageCount: result[0].request_count,
           remaining: result[0].remaining,
           canAnalyze: result[0].can_analyze,
-          dailyLimit: DAILY_LIMIT
+          dailyLimit: dailyLimit,
+          isVip
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
@@ -124,9 +175,10 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         usageCount: 0, 
-        remaining: DAILY_LIMIT, 
+        remaining: dailyLimit, 
         canAnalyze: true,
-        dailyLimit: DAILY_LIMIT
+        dailyLimit: dailyLimit,
+        isVip
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
@@ -136,9 +188,10 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         usageCount: 0, 
-        remaining: DAILY_LIMIT, 
+        remaining: FREE_DAILY_LIMIT, 
         canAnalyze: true,
-        dailyLimit: DAILY_LIMIT
+        dailyLimit: FREE_DAILY_LIMIT,
+        isVip: false
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
