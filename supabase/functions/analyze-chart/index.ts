@@ -638,113 +638,64 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     console.log("Processing analysis request, remaining before:", remaining, "isVip:", isVip);
 
-    // Same high-quality model and analysis for all users
-    // VIP benefits: more daily analyses (20 vs 3), signal history, personal stats, PDF exports
-    // Using user's own Gemini API key directly
-    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
-    if (!GEMINI_API_KEY) {
-      console.error("GEMINI_API_KEY not configured");
-      return new Response(
-        JSON.stringify({ 
-          error: "⚠️ Analysis unavailable\n\nGemini API key not configured.\n\nNo signal generated to avoid random trades.",
-          apiUnavailable: true
-        }),
-        { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const model = await (async () => {
-      // Discover available models for this API key (some keys/projects don't have every model)
-      try {
-        const r = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models?key=${GEMINI_API_KEY}`
-        );
-        const j = await r.json().catch(() => ({} as any));
-        const models: any[] = j?.models ?? [];
-        console.log("Gemini ListModels count:", models.length, "sample:", models.slice(0, 8).map((m) => m?.name));
-        const preferred = ["gemini-flash-latest", "gemini-pro-latest", "gemini-1.5-flash", "gemini-1.5-pro", "gemini-1.0-pro-vision"];
-        for (const name of preferred) {
-          const hit = models.find((m) => m?.name === `models/${name}`);
-          const methods: string[] = hit?.supportedGenerationMethods ?? [];
-          if (hit && methods.includes("generateContent")) return name;
-        }
-
-        // As a last check, take any model that supports generateContent
-        const anyGen = models.find((m) => (m?.supportedGenerationMethods ?? []).includes("generateContent"));
-        if (anyGen?.name?.startsWith("models/")) return anyGen.name.replace("models/", "");
-
-        console.error("Gemini ListModels returned no usable models", j);
-      } catch (e) {
-        console.error("Gemini ListModels failed", e);
-      }
-
-      // SAFETY: if we can't confirm a valid model, block analysis
-      return null;
-    })();
-
-    if (!model) {
+    if (!LOVABLE_API_KEY) {
+      console.error("LOVABLE_API_KEY not configured");
       return new Response(
         JSON.stringify({
           error:
-            "⚠️ Analysis unavailable\n\nExternal AI API not responding.\n\nNo signal generated to avoid random trades.",
+            "⚠️ Analysis unavailable\n\nAI is not configured.\n\nNo signal generated to avoid random trades.",
           apiUnavailable: true,
         }),
         { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
-    const systemPrompt = freeSystemPrompt; // Now using the same advanced prompt for everyone
-    const analysisInstruction = "Analyze this trading chart using the advanced 6-step method: 1) Consider multi-timeframe context, 2) Count candles and identify trend structure with momentum analysis, 3) Mark confluence support/resistance zones, 4) Identify high-probability candlestick patterns, 5) Run your entry confirmation checklist, 6) Score your confidence (only signal if 7+). Your analysis must be HIGHLY ACCURATE and REPRODUCIBLE. Focus on what the chart SHOWS. Respond with JSON only.";
 
-    console.log(`Using Gemini API directly with model: ${model} for ${isVip ? 'VIP' : 'FREE'} user`);
+    // Use Lovable AI (no external provider quota keys)
+    const model = "google/gemini-2.5-flash";
+    const systemPrompt = freeSystemPrompt; // Same advanced prompt for everyone
+    const analysisInstruction =
+      "Analyze this trading chart using the advanced 6-step method: 1) Consider multi-timeframe context, 2) Count candles and identify trend structure with momentum analysis, 3) Mark confluence support/resistance zones, 4) Identify high-probability candlestick patterns, 5) Run your entry confirmation checklist, 6) Score your confidence (only signal if 7+). Your analysis must be HIGHLY ACCURATE and REPRODUCIBLE. Focus on what the chart SHOWS. Respond with JSON only.";
 
-    // Add timeout for Gemini API request (55 seconds)
+    console.log(`Using Lovable AI model: ${model} for ${isVip ? "VIP" : "FREE"} user`);
+
+    // Add timeout for AI request (55 seconds)
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 55000);
 
-    // Extract mime type + base64 payload from the data URL
-    const mimeMatch = imageBase64.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,/);
-    const mimeType = mimeMatch?.[1] ?? "image/png";
-    const base64Payload = imageBase64.replace(/^data:image\/[a-zA-Z0-9.+-]+;base64,/, "");
-
     let response: Response;
     try {
-      response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`,
-        {
-          method: "POST",
-          signal: controller.signal,
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            contents: [
-              {
-                parts: [
-                  { text: systemPrompt + "\n\n" + analysisInstruction },
-                  {
-                    inline_data: {
-                      mime_type: mimeType,
-                      data: base64Payload,
-                    },
-                  },
-                ],
-              },
-            ],
-            generationConfig: {
-              temperature: 0.1,
-              maxOutputTokens: 2048,
+      // Lovable AI uses an OpenAI-compatible chat completions API
+      response = await fetch("https://api.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        signal: controller.signal,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model,
+          temperature: 0.1,
+          max_tokens: 2048,
+          messages: [
+            { role: "system", content: systemPrompt },
+            {
+              role: "user",
+              content: [
+                { type: "text", text: analysisInstruction },
+                { type: "image_url", image_url: { url: imageBase64 } },
+              ],
             },
-          }),
-        }
-      );
+          ],
+        }),
+      });
       clearTimeout(timeoutId);
     } catch (err) {
       clearTimeout(timeoutId);
-      console.error("External AI API error:", err);
+      console.error("AI request error:", err);
       return new Response(
         JSON.stringify({
           error:
-            "⚠️ Analysis unavailable\n\nExternal AI API not responding.\n\nNo signal generated to avoid random trades.",
+            "⚠️ Analysis unavailable\n\nAI is temporarily unavailable.\n\nNo signal generated to avoid random trades.",
           apiUnavailable: true,
         }),
         { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -753,27 +704,41 @@ serve(async (req) => {
 
     if (!response.ok) {
       const errText = await response.text().catch(() => "");
-      console.error("External AI API error:", response.status, errText);
+      console.error("AI response error:", response.status, errText);
+
+      // Explicit handling for rate limiting
+      if (response.status === 429) {
+        return new Response(
+          JSON.stringify({
+            error:
+              "⚠️ Analysis busy\n\nToo many requests right now. Please wait ~60 seconds and try again.",
+            apiUnavailable: true,
+            retryAfterSeconds: 60,
+          }),
+          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
       return new Response(
         JSON.stringify({
           error:
-            "⚠️ Analysis unavailable\n\nExternal AI API not responding.\n\nNo signal generated to avoid random trades.",
+            "⚠️ Analysis unavailable\n\nAI is temporarily unavailable.\n\nNo signal generated to avoid random trades.",
           apiUnavailable: true,
         }),
         { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const data = await response.json();
-    // Gemini API response format: candidates[0].content.parts[0].text
-    const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    const ai = await response.json().catch(() => ({} as any));
+    const content = ai?.choices?.[0]?.message?.content ?? ai?.output_text ?? ai?.text;
 
     if (!content) {
-      console.error("ERR_EMPTY_RESPONSE: External AI returned no content");
+      console.error("ERR_EMPTY_RESPONSE: AI returned no content", ai);
       return new Response(
-        JSON.stringify({ 
-          error: "⚠️ Analysis unavailable\n\nExternal AI API not responding.\n\nNo signal generated to avoid random trades.",
-          apiUnavailable: true
+        JSON.stringify({
+          error:
+            "⚠️ Analysis unavailable\n\nAI returned an empty response.\n\nNo signal generated to avoid random trades.",
+          apiUnavailable: true,
         }),
         { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
