@@ -74,6 +74,7 @@ export type Database = {
           amount: number
           created_at: string
           email: string | null
+          generated_password: string | null
           id: string
           proof_image_url: string
           reviewed_at: string | null
@@ -86,6 +87,7 @@ export type Database = {
           amount: number
           created_at?: string
           email?: string | null
+          generated_password?: string | null
           id?: string
           proof_image_url: string
           reviewed_at?: string | null
@@ -98,6 +100,7 @@ export type Database = {
           amount?: number
           created_at?: string
           email?: string | null
+          generated_password?: string | null
           id?: string
           proof_image_url?: string
           reviewed_at?: string | null
