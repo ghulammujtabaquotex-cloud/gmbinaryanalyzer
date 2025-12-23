@@ -3,8 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Upload, ImageIcon, Loader2, CheckCircle, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
 import { PAYMENT_CONFIG } from '@/lib/paymentConfig';
 import { toast } from 'sonner';
 
@@ -14,24 +15,22 @@ interface PaymentProofUploadProps {
 
 export const PaymentProofUpload = ({ onBack }: PaymentProofUploadProps) => {
   const navigate = useNavigate();
-  const { user } = useAuth();
   const [isUploading, setIsUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [email, setEmail] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validate file type
     if (!file.type.startsWith('image/')) {
       toast.error('Please upload an image file');
       return;
     }
 
-    // Validate file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
       toast.error('Image must be less than 5MB');
       return;
@@ -66,9 +65,18 @@ export const PaymentProofUpload = ({ onBack }: PaymentProofUploadProps) => {
     }
   };
 
+  const validateEmail = (email: string) => {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  };
+
   const handleSubmit = async () => {
-    if (!user || !selectedFile) {
+    if (!selectedFile) {
       toast.error('Please select an image');
+      return;
+    }
+
+    if (!email || !validateEmail(email)) {
+      toast.error('Please enter a valid email address');
       return;
     }
 
@@ -77,9 +85,9 @@ export const PaymentProofUpload = ({ onBack }: PaymentProofUploadProps) => {
     try {
       // Generate unique filename
       const fileExt = selectedFile.name.split('.').pop();
-      const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+      const fileName = `anonymous/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
 
-      // Upload to storage
+      // Upload to storage using anon key (public upload)
       const { error: uploadError } = await supabase.storage
         .from('payment-proofs')
         .upload(fileName, selectedFile);
@@ -90,18 +98,13 @@ export const PaymentProofUpload = ({ onBack }: PaymentProofUploadProps) => {
         return;
       }
 
-      // Get the file URL
-      const { data: urlData } = supabase.storage
-        .from('payment-proofs')
-        .getPublicUrl(fileName);
-
-      // Create payment request record
+      // Create payment request record (anonymous)
       const { error: insertError } = await supabase
         .from('payment_requests')
         .insert({
-          user_id: user.id,
           amount: PAYMENT_CONFIG.vipPrice,
-          proof_image_url: fileName, // Store path, not full URL
+          proof_image_url: fileName,
+          email: email,
           status: 'pending',
         });
 
@@ -150,7 +153,7 @@ export const PaymentProofUpload = ({ onBack }: PaymentProofUploadProps) => {
                 Payment Proof Submitted!
               </h2>
               <p className="text-muted-foreground mb-6">
-                Your payment is being reviewed. Once approved, you'll have full VIP access. 
+                Your payment is being reviewed. Once approved, you'll receive your VIP login credentials at <strong className="text-foreground">{email}</strong>. 
                 This usually takes less than 24 hours.
               </p>
               <Button onClick={() => navigate('/')} className="w-full">
@@ -190,6 +193,22 @@ export const PaymentProofUpload = ({ onBack }: PaymentProofUploadProps) => {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
+            {/* Email Input */}
+            <div className="space-y-2">
+              <Label htmlFor="email">Your Email Address</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="Enter your email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="bg-background"
+              />
+              <p className="text-xs text-muted-foreground">
+                We'll send your VIP login credentials to this email after approval
+              </p>
+            </div>
+
             {/* Upload Area */}
             <div
               className={`
@@ -262,7 +281,7 @@ export const PaymentProofUpload = ({ onBack }: PaymentProofUploadProps) => {
             <Button
               className="w-full"
               variant="analyze"
-              disabled={!selectedFile || isUploading}
+              disabled={!selectedFile || !email || isUploading}
               onClick={handleSubmit}
             >
               {isUploading ? (
