@@ -116,7 +116,7 @@ const Results = () => {
             Results are based on user-submitted outcomes. Past performance does not guarantee future results.
           </p>
           <p className="text-center text-xs text-muted-foreground">
-            copyright © GHULAM MUJTABA
+            Copyright © GHULAM MUJTABA
           </p>
         </div>
       </footer>
