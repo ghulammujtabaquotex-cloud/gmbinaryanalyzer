@@ -8,15 +8,79 @@ interface ChartUploaderProps {
   disabled?: boolean;
 }
 
+// Compress image to stay under ~1.5 MB (base64 ≈ 2 MB)
+const MAX_DIMENSION = 1600;
+const TARGET_SIZE_BYTES = 1.5 * 1024 * 1024;
+
+async function compressImage(file: File): Promise<File> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      let { width, height } = img;
+
+      // Scale down if larger than max dimension
+      if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
+        const ratio = Math.min(MAX_DIMENSION / width, MAX_DIMENSION / height);
+        width = Math.round(width * ratio);
+        height = Math.round(height * ratio);
+      }
+
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        reject(new Error("Canvas not supported"));
+        return;
+      }
+      ctx.drawImage(img, 0, 0, width, height);
+
+      // Try quality levels until size is acceptable
+      const tryQuality = (quality: number) => {
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) {
+              reject(new Error("Compression failed"));
+              return;
+            }
+            if (blob.size <= TARGET_SIZE_BYTES || quality <= 0.3) {
+              const compressed = new File([blob], file.name, { type: "image/jpeg" });
+              resolve(compressed);
+            } else {
+              tryQuality(quality - 0.1);
+            }
+          },
+          "image/jpeg",
+          quality
+        );
+      };
+      tryQuality(0.85);
+    };
+    img.onerror = () => reject(new Error("Image load failed"));
+    img.src = URL.createObjectURL(file);
+  });
+}
+
 export function ChartUploader({ onImageSelect, selectedImage, disabled = false }: ChartUploaderProps) {
   const [isDragOver, setIsDragOver] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [isCompressing, setIsCompressing] = useState(false);
 
-  const handleFile = useCallback((file: File) => {
-    if (file.type.startsWith("image/")) {
-      onImageSelect(file);
-      const url = URL.createObjectURL(file);
+  const handleFile = useCallback(async (file: File) => {
+    if (!file.type.startsWith("image/")) return;
+
+    setIsCompressing(true);
+    try {
+      const compressed = await compressImage(file);
+      onImageSelect(compressed);
+      const url = URL.createObjectURL(compressed);
       setPreviewUrl(url);
+    } catch {
+      // Fallback to original if compression fails
+      onImageSelect(file);
+      setPreviewUrl(URL.createObjectURL(file));
+    } finally {
+      setIsCompressing(false);
     }
   }, [onImageSelect]);
 
@@ -78,14 +142,18 @@ export function ChartUploader({ onImageSelect, selectedImage, disabled = false }
               <span className="text-primary">Click to upload</span> or drag and drop
             </p>
             <p className="text-xs text-muted-foreground">
-              PNG, JPG or WebP (Trading chart screenshot)
+              PNG, JPG or WebP (auto-compressed for fast analysis)
             </p>
+            {isCompressing && (
+              <p className="text-xs text-primary mt-1 animate-pulse">Compressing image…</p>
+            )}
           </div>
           <input
             type="file"
             className="hidden"
             accept="image/*"
             onChange={handleInputChange}
+            disabled={isCompressing}
           />
         </label>
       ) : (
