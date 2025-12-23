@@ -7,6 +7,7 @@ export function GlobalAnalysisCounter() {
   const [count, setCount] = useState<number | null>(null);
   const [isLive, setIsLive] = useState(true);
   const [justUpdated, setJustUpdated] = useState(false);
+  const [hasError, setHasError] = useState(false);
 
   useEffect(() => {
     // Initial fetch
@@ -32,8 +33,8 @@ export function GlobalAnalysisCounter() {
         setIsLive(status === 'SUBSCRIBED');
       });
 
-    // Periodic refresh every 30 seconds as backup
-    const interval = setInterval(fetchCount, 30000);
+    // Periodic refresh every 60 seconds (reduced from 30s)
+    const interval = setInterval(fetchCount, 60000);
 
     return () => {
       supabase.removeChannel(channel);
@@ -43,17 +44,24 @@ export function GlobalAnalysisCounter() {
 
   const fetchCount = async () => {
     try {
-      // Sum all request_count from ip_usage to get total analyses
-      const { data, error } = await supabase
-        .from('ip_usage')
-        .select('request_count');
+      // Use secure RPC function that only returns total count (no IPs exposed)
+      const { data, error } = await supabase.rpc('get_total_analysis_count');
 
-      if (!error && data) {
-        const total = data.reduce((sum, row) => sum + (row.request_count || 0), 0);
-        setCount(total);
+      if (error) {
+        if (import.meta.env.DEV) {
+          console.error('Error fetching analysis count:', error);
+        }
+        setHasError(true);
+        return;
       }
+
+      setCount(data ?? 0);
+      setHasError(false);
     } catch (err) {
-      console.error('Error fetching count:', err);
+      if (import.meta.env.DEV) {
+        console.error('Error fetching count:', err);
+      }
+      setHasError(true);
     }
   };
 
@@ -72,7 +80,8 @@ export function GlobalAnalysisCounter() {
     return num.toLocaleString();
   };
 
-  if (count === null) {
+  // Don't show if loading or error
+  if (count === null || hasError) {
     return null;
   }
 

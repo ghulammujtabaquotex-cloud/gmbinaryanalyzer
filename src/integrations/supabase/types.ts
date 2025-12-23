@@ -339,6 +339,7 @@ export type Database = {
           status: Database["public"]["Enums"]["payment_status"]
         }[]
       }
+      get_total_analysis_count: { Args: never; Returns: number }
       get_trade_statistics: {
         Args: never
         Returns: {

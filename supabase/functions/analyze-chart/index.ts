@@ -12,7 +12,7 @@ const getAllowedOrigin = (requestOrigin: string | null): string => {
   
   // Strict regex patterns - prevents bypass via subdomains like localhost.evil.com
   const allowedPatterns = [
-    /^https:\/\/rbqafiykevtbgztczizr\.lovableproject\.com$/,
+    /^https:\/\/[a-z0-9-]+\.lovableproject\.com$/,
     /^https:\/\/gmbinarypro\.lovable\.app$/,
     /^https?:\/\/(localhost|127\.0\.0\.1)(:\d{1,5})?$/, // Dev only with optional port
   ];
