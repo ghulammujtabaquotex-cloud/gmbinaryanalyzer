@@ -517,14 +517,6 @@ serve(async (req) => {
     }
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      console.error("ERR_CONFIG: Missing API key");
-      return new Response(
-        JSON.stringify({ error: "Service temporarily unavailable. Please try again later." }),
-        { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
     console.log("Processing analysis request, remaining before:", remaining, "isVip:", isVip);
 
     // Same high-quality model and analysis for all users
@@ -542,7 +534,45 @@ serve(async (req) => {
       );
     }
 
-    const model = "gemini-1.5-flash";
+    const model = await (async () => {
+      // Discover available models for this API key (some keys/projects don't have every model)
+      try {
+        const r = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models?key=${GEMINI_API_KEY}`
+        );
+        const j = await r.json().catch(() => ({} as any));
+        const models: any[] = j?.models ?? [];
+        console.log("Gemini ListModels count:", models.length, "sample:", models.slice(0, 8).map((m) => m?.name));
+        const preferred = ["gemini-flash-latest", "gemini-pro-latest", "gemini-1.5-flash", "gemini-1.5-pro", "gemini-1.0-pro-vision"];
+        for (const name of preferred) {
+          const hit = models.find((m) => m?.name === `models/${name}`);
+          const methods: string[] = hit?.supportedGenerationMethods ?? [];
+          if (hit && methods.includes("generateContent")) return name;
+        }
+
+        // As a last check, take any model that supports generateContent
+        const anyGen = models.find((m) => (m?.supportedGenerationMethods ?? []).includes("generateContent"));
+        if (anyGen?.name?.startsWith("models/")) return anyGen.name.replace("models/", "");
+
+        console.error("Gemini ListModels returned no usable models", j);
+      } catch (e) {
+        console.error("Gemini ListModels failed", e);
+      }
+
+      // SAFETY: if we can't confirm a valid model, block analysis
+      return null;
+    })();
+
+    if (!model) {
+      return new Response(
+        JSON.stringify({
+          error:
+            "⚠️ Analysis unavailable\n\nExternal AI API not responding.\n\nNo signal generated to avoid random trades.",
+          apiUnavailable: true,
+        }),
+        { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
     const systemPrompt = freeSystemPrompt; // Now using the same advanced prompt for everyone
     const analysisInstruction = "Analyze this trading chart using the advanced 6-step method: 1) Consider multi-timeframe context, 2) Count candles and identify trend structure with momentum analysis, 3) Mark confluence support/resistance zones, 4) Identify high-probability candlestick patterns, 5) Run your entry confirmation checklist, 6) Score your confidence (only signal if 7+). Your analysis must be HIGHLY ACCURATE and REPRODUCIBLE. Focus on what the chart SHOWS. Respond with JSON only.";
 
