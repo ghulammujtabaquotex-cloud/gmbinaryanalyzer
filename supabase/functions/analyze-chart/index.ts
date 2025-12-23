@@ -665,7 +665,7 @@ serve(async (req) => {
     let response: Response;
     try {
       // Lovable AI uses an OpenAI-compatible chat completions API
-      response = await fetch("https://api.lovable.dev/v1/chat/completions", {
+      response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         signal: controller.signal,
         headers: {
