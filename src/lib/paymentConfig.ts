@@ -1,13 +1,15 @@
 // Payment configuration
 export const PAYMENT_CONFIG = {
   binancePayId: '1050153746',
-  vipPrice: 19.99,
+  vipPrice: 2.5,
   currency: 'USDT',
   vipDurationDays: 30, // 1 month
+  vipDailyLimit: 20,
+  freeDailyLimit: 5,
 };
 
 export const VIP_FEATURES = [
-  'Unlimited daily analyses',
+  '20 analyses per day',
   'Priority signal processing',
   'Advanced multi-timeframe analysis',
   'Personal accuracy statistics',

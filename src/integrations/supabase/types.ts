@@ -73,34 +73,37 @@ export type Database = {
           admin_notes: string | null
           amount: number
           created_at: string
+          email: string | null
           id: string
           proof_image_url: string
           reviewed_at: string | null
           reviewed_by: string | null
           status: Database["public"]["Enums"]["payment_status"]
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           admin_notes?: string | null
           amount: number
           created_at?: string
+          email?: string | null
           id?: string
           proof_image_url: string
           reviewed_at?: string | null
           reviewed_by?: string | null
           status?: Database["public"]["Enums"]["payment_status"]
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           admin_notes?: string | null
           amount?: number
           created_at?: string
+          email?: string | null
           id?: string
           proof_image_url?: string
           reviewed_at?: string | null
           reviewed_by?: string | null
           status?: Database["public"]["Enums"]["payment_status"]
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: []
       }

@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Check, X, Loader2, Crown, Clock, Eye, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Check, X, Loader2, Crown, Clock, Eye, RefreshCw, Copy, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useAdmin } from '@/hooks/useAdmin';
@@ -14,17 +16,24 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from '@/components/ui/dialog';
 
 interface PaymentRequest {
   id: string;
-  user_id: string;
+  user_id: string | null;
+  email: string | null;
   amount: number;
   proof_image_url: string;
   status: 'pending' | 'approved' | 'rejected';
   admin_notes: string | null;
   reviewed_at: string | null;
   created_at: string;
+}
+
+interface CreatedCredentials {
+  email: string;
+  password: string;
 }
 
 const Admin = () => {
@@ -35,6 +44,10 @@ const Admin = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [viewingImage, setViewingImage] = useState<string | null>(null);
+  const [approvingPayment, setApprovingPayment] = useState<PaymentRequest | null>(null);
+  const [approvalEmail, setApprovalEmail] = useState('');
+  const [createdCredentials, setCreatedCredentials] = useState<CreatedCredentials | null>(null);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
 
   const fetchPayments = async () => {
     setIsLoading(true);
@@ -70,50 +83,47 @@ const Admin = () => {
     return data.publicUrl;
   };
 
-  const handleApprove = async (payment: PaymentRequest) => {
-    if (!user) return;
-    setProcessingId(payment.id);
+  const handleApproveClick = (payment: PaymentRequest) => {
+    setApprovingPayment(payment);
+    setApprovalEmail(payment.email || '');
+    setCreatedCredentials(null);
+  };
+
+  const handleApprove = async () => {
+    if (!approvingPayment || !approvalEmail) {
+      toast.error('Please enter an email address');
+      return;
+    }
+
+    setProcessingId(approvingPayment.id);
 
     try {
-      // Calculate expiration date (30 days from now)
-      const expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + PAYMENT_CONFIG.vipDurationDays);
+      // Call edge function to create user and subscription
+      const { data, error } = await supabase.functions.invoke('create-vip-user', {
+        body: {
+          email: approvalEmail,
+          paymentRequestId: approvingPayment.id,
+        },
+      });
 
-      // Update or insert subscription
-      const { error: subError } = await supabase
-        .from('subscriptions')
-        .upsert({
-          user_id: payment.user_id,
-          tier: 'vip',
-          expires_at: expiresAt.toISOString(),
-          updated_at: new Date().toISOString(),
-        }, {
-          onConflict: 'user_id',
-        });
-
-      if (subError) {
-        console.error('Subscription error:', subError);
-        toast.error('Failed to update subscription');
+      if (error) {
+        console.error('Error:', error);
+        toast.error('Failed to create VIP user');
         return;
       }
 
-      // Update payment request
-      const { error: paymentError } = await supabase
-        .from('payment_requests')
-        .update({
-          status: 'approved',
-          reviewed_by: user.id,
-          reviewed_at: new Date().toISOString(),
-        })
-        .eq('id', payment.id);
-
-      if (paymentError) {
-        console.error('Payment update error:', paymentError);
-        toast.error('Failed to update payment status');
+      if (data.error) {
+        toast.error(data.error);
         return;
       }
 
-      toast.success('Payment approved! User is now VIP.');
+      // Show credentials
+      setCreatedCredentials({
+        email: data.email,
+        password: data.password,
+      });
+
+      toast.success('VIP user created successfully!');
       fetchPayments();
     } catch (error) {
       console.error('Error:', error);
@@ -150,6 +160,17 @@ const Admin = () => {
       toast.error('Something went wrong');
     } finally {
       setProcessingId(null);
+    }
+  };
+
+  const copyToClipboard = async (text: string, field: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedField(field);
+      toast.success(`${field} copied!`);
+      setTimeout(() => setCopiedField(null), 2000);
+    } catch {
+      toast.error('Failed to copy');
     }
   };
 
@@ -309,9 +330,11 @@ const Admin = () => {
                         </span>
                         {getStatusBadge(payment.status)}
                       </div>
-                      <p className="text-sm text-muted-foreground truncate">
-                        User: {payment.user_id.slice(0, 8)}...
-                      </p>
+                      {payment.email && (
+                        <p className="text-sm text-primary truncate">
+                          {payment.email}
+                        </p>
+                      )}
                       <p className="text-xs text-muted-foreground">
                         {formatDate(payment.created_at)}
                       </p>
@@ -342,7 +365,7 @@ const Admin = () => {
                         size="sm"
                         className="bg-success hover:bg-success/90"
                         disabled={processingId === payment.id}
-                        onClick={() => handleApprove(payment)}
+                        onClick={() => handleApproveClick(payment)}
                       >
                         {processingId === payment.id ? (
                           <Loader2 className="w-4 h-4 animate-spin" />
@@ -382,6 +405,9 @@ const Admin = () => {
                         </span>
                         {getStatusBadge(payment.status)}
                       </div>
+                      {payment.email && (
+                        <p className="text-xs text-primary">{payment.email}</p>
+                      )}
                       <p className="text-xs text-muted-foreground">
                         {formatDate(payment.created_at)}
                       </p>
@@ -413,6 +439,120 @@ const Admin = () => {
               alt="Payment proof"
               className="w-full rounded-lg"
             />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Approval Dialog */}
+      <Dialog open={!!approvingPayment} onOpenChange={() => {
+        setApprovingPayment(null);
+        setCreatedCredentials(null);
+      }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {createdCredentials ? 'VIP Credentials Created' : 'Approve Payment'}
+            </DialogTitle>
+            <DialogDescription>
+              {createdCredentials 
+                ? 'Share these credentials with the user. Password cannot be retrieved again!'
+                : 'Create VIP account for this payment'
+              }
+            </DialogDescription>
+          </DialogHeader>
+
+          {createdCredentials ? (
+            <div className="space-y-4">
+              <div className="bg-success/10 border border-success/30 rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-4">
+                  <CheckCircle className="w-5 h-5 text-success" />
+                  <span className="font-semibold text-success">Account Created!</span>
+                </div>
+
+                <div className="space-y-3">
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Email</Label>
+                    <div className="flex items-center gap-2 mt-1">
+                      <code className="bg-background px-3 py-2 rounded text-sm flex-1 font-mono">
+                        {createdCredentials.email}
+                      </code>
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => copyToClipboard(createdCredentials.email, 'Email')}
+                      >
+                        {copiedField === 'Email' ? <CheckCircle className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Password</Label>
+                    <div className="flex items-center gap-2 mt-1">
+                      <code className="bg-background px-3 py-2 rounded text-sm flex-1 font-mono">
+                        {createdCredentials.password}
+                      </code>
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => copyToClipboard(createdCredentials.password, 'Password')}
+                      >
+                        {copiedField === 'Password' ? <CheckCircle className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <Button 
+                className="w-full" 
+                onClick={() => {
+                  setApprovingPayment(null);
+                  setCreatedCredentials(null);
+                }}
+              >
+                Done
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="approval-email">User Email</Label>
+                <Input
+                  id="approval-email"
+                  type="email"
+                  placeholder="Enter user's email"
+                  value={approvalEmail}
+                  onChange={(e) => setApprovalEmail(e.target.value)}
+                  className="mt-1"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  A VIP account will be created with this email
+                </p>
+              </div>
+
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  className="flex-1"
+                  onClick={() => setApprovingPayment(null)}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  className="flex-1 bg-success hover:bg-success/90"
+                  disabled={!approvalEmail || processingId === approvingPayment?.id}
+                  onClick={handleApprove}
+                >
+                  {processingId === approvingPayment?.id ? (
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  ) : (
+                    <Check className="w-4 h-4 mr-2" />
+                  )}
+                  Create VIP Account
+                </Button>
+              </div>
+            </div>
           )}
         </DialogContent>
       </Dialog>
