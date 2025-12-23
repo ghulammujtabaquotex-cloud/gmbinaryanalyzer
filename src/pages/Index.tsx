@@ -332,9 +332,12 @@ const Index = () => {
                   <div className="p-4 rounded-full bg-destructive/20">
                     <Activity className="w-8 h-8 text-destructive" />
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     <p className="text-lg font-bold text-destructive">
                       NOTE: THE FREE PLAN LIMIT NOW CLOSE
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      Want premium features? BUY PLAN
                     </p>
                     <p className="text-sm text-muted-foreground">
                       OR CREATE ACCOUNT WITH THIS LINK{" "}
@@ -348,16 +351,14 @@ const Index = () => {
                       </a>{" "}
                       AND SEND TRADER ID: WHATSAPP +923313063104
                     </p>
-                    <p className="text-sm text-primary font-semibold">
-                      Want premium features?{" "}
-                      <a
-                        href="/pricing"
-                        className="underline hover:text-primary/80"
-                      >
-                        BUY PLAN
-                      </a>
-                    </p>
                   </div>
+                  <Button
+                    onClick={() => navigate("/pricing")}
+                    className="mt-2 relative overflow-hidden bg-gradient-to-r from-primary via-primary/80 to-primary hover:from-primary/90 hover:via-primary hover:to-primary/90 text-primary-foreground font-bold px-8 py-3 rounded-full shadow-[0_0_20px_hsl(var(--primary)/0.5)] hover:shadow-[0_0_30px_hsl(var(--primary)/0.7)] transition-all duration-300 animate-pulse hover:animate-none"
+                  >
+                    <Zap className="w-5 h-5 mr-2" />
+                    GET NOW
+                  </Button>
                 </div>
               </div>
             ) : pendingFeedback && analysisResult ? (
