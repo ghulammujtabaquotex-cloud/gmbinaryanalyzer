@@ -573,33 +573,24 @@ serve(async (req) => {
       clearTimeout(timeoutId);
     } catch (err) {
       clearTimeout(timeoutId);
-      if (err instanceof Error && err.name === 'AbortError') {
-        console.error("Request timeout after 55s");
-        return new Response(
-          JSON.stringify({ error: "Analysis timed out. Please try again." }),
-          { status: 504, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      throw err;
+      console.error("External AI API error:", err);
+      return new Response(
+        JSON.stringify({ 
+          error: "⚠️ Analysis unavailable\n\nExternal AI API not responding.\n\nNo signal generated to avoid random trades.",
+          apiUnavailable: true
+        }),
+        { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     if (!response.ok) {
-      if (response.status === 429) {
-        return new Response(
-          JSON.stringify({ error: "Rate limit exceeded. Please try again in a moment." }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: "Usage limit reached. Please try again later." }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      console.error("Gateway error:", response.status);
+      console.error("External AI API error:", response.status);
       return new Response(
-        JSON.stringify({ error: "Analysis failed. Please try again." }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ 
+          error: "⚠️ Analysis unavailable\n\nExternal AI API not responding.\n\nNo signal generated to avoid random trades.",
+          apiUnavailable: true
+        }),
+        { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -607,28 +598,30 @@ serve(async (req) => {
     const content = data.choices?.[0]?.message?.content;
 
     if (!content) {
-      console.error("ERR_EMPTY_RESPONSE");
+      console.error("ERR_EMPTY_RESPONSE: External AI returned no content");
       return new Response(
-        JSON.stringify({ error: "Analysis failed. Please try again." }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ 
+          error: "⚠️ Analysis unavailable\n\nExternal AI API not responding.\n\nNo signal generated to avoid random trades.",
+          apiUnavailable: true
+        }),
+        { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Parse the JSON response from AI
+    // Parse the JSON response from AI - NO FALLBACK, fail if parse fails
     let analysis;
     try {
       const cleanContent = content.replace(/```json\n?|\n?```/g, "").trim();
       analysis = JSON.parse(cleanContent);
     } catch {
-      console.error("ERR_PARSE");
-      analysis = {
-        pair: "Unknown",
-        trend: "Range",
-        signal: "NEUTRAL",
-        supportZone: "Unable to determine",
-        resistanceZone: "Unable to determine",
-        explanation: "Could not fully analyze the chart. Please ensure the image shows a clear trading chart with at least 30 visible candlesticks and try again.",
-      };
+      console.error("ERR_PARSE: Failed to parse external AI response");
+      return new Response(
+        JSON.stringify({ 
+          error: "⚠️ Analysis unavailable\n\nExternal AI API returned invalid response.\n\nNo signal generated to avoid random trades.",
+          apiUnavailable: true
+        }),
+        { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     // Extract win probability from response (0-100%)
@@ -703,8 +696,11 @@ serve(async (req) => {
   } catch (err) {
     console.error("ERR_UNEXPECTED:", err);
     return new Response(
-      JSON.stringify({ error: "Analysis failed. Please try again." }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      JSON.stringify({ 
+        error: "⚠️ Analysis unavailable\n\nExternal AI API not responding.\n\nNo signal generated to avoid random trades.",
+        apiUnavailable: true
+      }),
+      { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });
