@@ -20,7 +20,7 @@ const Index = () => {
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<AnalysisData | null>(null);
-  const [pendingFeedback, setPendingFeedback] = useState<{ signal: "CALL" | "PUT"; pair: string } | null>(null);
+  const [pendingFeedback, setPendingFeedback] = useState<{ signal: "CALL" | "PUT"; pair: string; signalHistoryId?: string } | null>(null);
   const [showVIPNotice, setShowVIPNotice] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -125,7 +125,11 @@ const Index = () => {
 
       // If CALL or PUT signal, set pending feedback (locks analysis until feedback)
       if (sanitizedData.signal === "CALL" || sanitizedData.signal === "PUT") {
-        setPendingFeedback({ signal: sanitizedData.signal, pair: sanitizedData.pair });
+        setPendingFeedback({ 
+          signal: sanitizedData.signal, 
+          pair: sanitizedData.pair,
+          signalHistoryId: data.signalHistoryId // Pass VIP signal history ID
+        });
         
         toast({
           title: "Analysis complete!",
@@ -165,12 +169,13 @@ const Index = () => {
     if (!pendingFeedback) return { error: "No pending feedback" };
 
     try {
-      // Use secure edge function for anonymous result submission
-      // This bypasses RLS and uses server-side rate limiting
+      // Use secure edge function for result submission
+      // Updates signal_history for VIP users and adds to global trade_results
       const { data, error } = await supabase.functions.invoke("submit-result", {
         body: {
           signal: pendingFeedback.signal,
           result: result,
+          signalHistoryId: pendingFeedback.signalHistoryId, // For VIP signal history update
         },
       });
 
