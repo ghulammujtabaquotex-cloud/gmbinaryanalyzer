@@ -27,7 +27,7 @@ const getAllowedOrigin = (requestOrigin: string | null): string => {
   return "https://rbqafiykevtbgztczizr.lovableproject.com";
 };
 
-// Same high-quality analysis for all users - VIP benefits are more daily analyses, history, stats, exports
+// Same high-quality analysis for all users - VIP benefits are more daily analyses, history, stats
 const freeSystemPrompt = `You are a PROFESSIONAL binary options price action analyst with 15+ years experience. Your analysis must be CONSISTENT, RELIABLE, and HIGHLY ACCURATE.
 
 ## CRITICAL CONSISTENCY RULE
@@ -83,29 +83,29 @@ FOR PUT SIGNAL (ALL conditions should align):
 ✓ No bullish divergence patterns
 ✓ Volume supports the move (if visible)
 
-### STEP 6: CONFIDENCE SCORING
-Rate your confidence (1-10) based on:
-- How many confirmation factors align
-- Clarity of the pattern
-- Strength of support/resistance
-- Trend alignment
-
-Only give CALL/PUT if confidence is 7+. Otherwise, give NEUTRAL.
+### STEP 6: WIN PROBABILITY CALCULATION
+Calculate the probability of the next candle going in the signal direction (0-100%):
+- Base probability on trend strength (stronger trend = higher probability)
+- Adjust for pattern clarity (+5-15% for clear patterns)
+- Adjust for key level proximity (+10% at strong S/R, -10% against S/R)
+- Adjust for momentum (+5-10% with momentum, -5-10% against)
+- Minimum probability for CALL/PUT signal: 65%
+- Below 65%: Give NEUTRAL
 
 ## SIGNAL RULES
 
-GIVE CALL WHEN (confidence 7+):
+GIVE CALL WHEN (probability 65%+):
 1. Strong uptrend (HH+HL) + bullish candle pattern, OR
 2. Price bouncing from STRONG support zone with clear bullish rejection, OR
 3. Downtrend breaking with strong bullish reversal candles + volume
 
-GIVE PUT WHEN (confidence 7+):
+GIVE PUT WHEN (probability 65%+):
 1. Strong downtrend (LH+LL) + bearish candle pattern, OR
 2. Price rejecting from STRONG resistance zone with clear bearish rejection, OR
 3. Uptrend breaking with strong bearish reversal candles + volume
 
 GIVE NEUTRAL WHEN:
-- Confidence below 7
+- Probability below 65%
 - Price is in middle of tight range with no clear bias
 - Conflicting signals (bullish trend but at resistance, bearish trend but at support)
 - Chart is unclear, blurry, or has less than 20 candles
@@ -117,9 +117,10 @@ Respond with valid JSON only:
   "pair": "SYMBOL/QUOTE",
   "trend": "Uptrend" | "Downtrend" | "Range",
   "signal": "CALL" | "PUT" | "NEUTRAL",
+  "winProbability": 75,
   "supportZone": "price level or range",
   "resistanceZone": "price level or range", 
-  "explanation": "Trend: [describe trend with candle count]. Structure: [HH/HL or LH/LL]. Pattern: [candlestick pattern observed]. Key level: [support/resistance interaction]. Confidence: [X/10]. Signal reason: [why this direction]."
+  "explanation": "Trend: [describe trend with candle count]. Structure: [HH/HL or LH/LL]. Pattern: [candlestick pattern observed]. Key level: [support/resistance interaction]. Win probability: [X]%. Signal reason: [why this direction]."
 }`;
 
 // Enhanced system prompt for VIP users - more detailed and professional
@@ -630,11 +631,20 @@ serve(async (req) => {
       };
     }
 
-    // Extract confidence from explanation if present
-    let confidence: number | null = null;
-    const confidenceMatch = analysis.explanation?.match(/Confidence:\s*(\d+)\/10/i);
-    if (confidenceMatch) {
-      confidence = parseInt(confidenceMatch[1], 10);
+    // Extract win probability from response (0-100%)
+    let winProbability: number | null = analysis.winProbability || null;
+    
+    // Also try to extract from explanation if not in structured response
+    if (!winProbability) {
+      const probMatch = analysis.explanation?.match(/Win probability:\s*(\d+)%/i);
+      if (probMatch) {
+        winProbability = parseInt(probMatch[1], 10);
+      }
+    }
+    
+    // Ensure winProbability is within valid range
+    if (winProbability !== null) {
+      winProbability = Math.max(0, Math.min(100, winProbability));
     }
 
     // ONLY increment usage for CALL or PUT signals, NOT for NEUTRAL
@@ -660,7 +670,7 @@ serve(async (req) => {
               support_zone: analysis.supportZone,
               resistance_zone: analysis.resistanceZone,
               explanation: analysis.explanation,
-              confidence: confidence,
+              confidence: winProbability ? Math.round(winProbability / 10) : null, // Store as 1-10 for DB
               result: null // Will be updated when user submits result
             })
             .select('id')
@@ -685,7 +695,7 @@ serve(async (req) => {
       remaining: finalRemaining,
       isVip,
       dailyLimit,
-      confidence,
+      winProbability,
       signalHistoryId
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
