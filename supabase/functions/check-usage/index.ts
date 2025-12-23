@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const FREE_DAILY_LIMIT = 999999; // Unlimited for free users (temporarily disabled)
+const FREE_DAILY_LIMIT = 3;
 const VIP_DAILY_LIMIT = 20;
 
 // CORS configuration
@@ -11,7 +11,7 @@ const getAllowedOrigin = (requestOrigin: string | null): string => {
   }
   
   const allowedPatterns = [
-    /^https:\/\/rbqafiykevtbgztczizr\.lovableproject\.com$/,
+    /^https:\/\/[a-z0-9-]+\.lovableproject\.com$/,
     /^https:\/\/gmbinarypro\.lovable\.app$/,
     /^https?:\/\/(localhost|127\.0\.0\.1)(:\d{1,5})?$/,
   ];
