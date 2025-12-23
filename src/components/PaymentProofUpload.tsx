@@ -109,27 +109,30 @@ export const PaymentProofUpload = ({ onBack }: PaymentProofUploadProps) => {
         return;
       }
 
-      // Create payment request record (anonymous) and get the access_token
-      const { data: insertedData, error: insertError } = await supabase
+      // Create payment request record (anonymous)
+      // NOTE: anon users can't SELECT from payment_requests due to RLS, so we generate
+      // our own access token and avoid `.select()` here.
+      const token = crypto.randomUUID();
+
+      const { error: insertError } = await supabase
         .from('payment_requests')
         .insert({
           amount: PAYMENT_CONFIG.vipPrice,
           proof_image_url: fileName,
-          email: email,
+          email,
           status: 'pending',
-        })
-        .select('access_token')
-        .single();
+          access_token: token,
+        });
 
-      if (insertError || !insertedData?.access_token) {
+      if (insertError) {
         console.error('Insert error:', insertError);
         toast.error('Failed to submit payment request. Please try again.');
         return;
       }
 
       // Save the access token to localStorage for persistence
-      localStorage.setItem(PAYMENT_TOKEN_KEY, insertedData.access_token);
-      setAccessToken(insertedData.access_token);
+      localStorage.setItem(PAYMENT_TOKEN_KEY, token);
+      setAccessToken(token);
       setShowTracker(true);
       toast.success('Payment proof submitted successfully!');
     } catch (error) {
