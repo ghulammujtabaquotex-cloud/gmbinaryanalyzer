@@ -1,20 +1,23 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Crown, Check, ArrowLeft, Loader2, Copy, CheckCircle, Upload } from 'lucide-react';
+import { Crown, Check, ArrowLeft, Loader2, Copy, CheckCircle, Building2, Wallet } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useSubscription } from '@/hooks/useSubscription';
 import { PAYMENT_CONFIG, VIP_FEATURES } from '@/lib/paymentConfig';
 import { PaymentProofUpload } from '@/components/PaymentProofUpload';
 import { toast } from 'sonner';
+import pakistanBankQR from '@/assets/pakistan-bank-qr.jpeg';
 
-type Step = 'plans' | 'payment-details' | 'upload-proof';
+type Step = 'plans' | 'select-method' | 'payment-details' | 'upload-proof';
+type PaymentMethod = 'binance' | 'pakistan-bank';
 
 const Pricing = () => {
   const navigate = useNavigate();
   const { isVip, pendingPayment, isLoading } = useSubscription();
   const [copied, setCopied] = useState(false);
   const [currentStep, setCurrentStep] = useState<Step>('plans');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null);
 
   const handleCopyBinanceId = async () => {
     try {
@@ -28,6 +31,11 @@ const Pricing = () => {
   };
 
   const handleUpgradeClick = () => {
+    setCurrentStep('select-method');
+  };
+
+  const handleSelectMethod = (method: PaymentMethod) => {
+    setPaymentMethod(method);
     setCurrentStep('payment-details');
   };
 
@@ -48,8 +56,8 @@ const Pricing = () => {
     return <PaymentProofUpload onBack={() => setCurrentStep('payment-details')} />;
   }
 
-  // Payment details screen
-  if (currentStep === 'payment-details') {
+  // Payment method selection screen
+  if (currentStep === 'select-method') {
     return (
       <div className="min-h-screen bg-background">
         <header className="border-b border-border/50 bg-card/50 backdrop-blur-sm sticky top-0 z-50">
@@ -69,11 +77,181 @@ const Pricing = () => {
         </header>
 
         <main className="container mx-auto px-4 py-12">
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/30 mb-4">
+              <Crown className="w-5 h-5 text-primary" />
+              <span className="text-primary font-semibold">VIP Upgrade</span>
+            </div>
+            <h2 className="text-2xl font-bold text-foreground mb-2">Select Payment Method</h2>
+            <p className="text-muted-foreground">Choose your preferred payment option</p>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-6 max-w-2xl mx-auto">
+            {/* Pakistani Banks Option */}
+            <Card 
+              className="glass-card cursor-pointer hover:border-primary/50 transition-all hover:scale-[1.02]"
+              onClick={() => handleSelectMethod('pakistan-bank')}
+            >
+              <CardContent className="p-6 text-center">
+                <div className="w-16 h-16 rounded-full bg-success/10 flex items-center justify-center mx-auto mb-4">
+                  <Building2 className="w-8 h-8 text-success" />
+                </div>
+                <h3 className="text-xl font-bold text-foreground mb-2">Pakistani Banks</h3>
+                <p className="text-muted-foreground text-sm mb-4">
+                  Pay via any Pakistani bank using QR code
+                </p>
+                <div className="bg-secondary/50 rounded-lg p-3">
+                  <span className="text-2xl font-bold text-success">Rs. {PAYMENT_CONFIG.pakistanBankPrice}</span>
+                  <span className="text-muted-foreground text-sm ml-1">PKR</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Binance Option */}
+            <Card 
+              className="glass-card cursor-pointer hover:border-primary/50 transition-all hover:scale-[1.02]"
+              onClick={() => handleSelectMethod('binance')}
+            >
+              <CardContent className="p-6 text-center">
+                <div className="w-16 h-16 rounded-full bg-warning/10 flex items-center justify-center mx-auto mb-4">
+                  <Wallet className="w-8 h-8 text-warning" />
+                </div>
+                <h3 className="text-xl font-bold text-foreground mb-2">Binance Pay</h3>
+                <p className="text-muted-foreground text-sm mb-4">
+                  Pay with USDT via Binance Pay
+                </p>
+                <div className="bg-secondary/50 rounded-lg p-3">
+                  <span className="text-2xl font-bold text-warning">${PAYMENT_CONFIG.vipPrice}</span>
+                  <span className="text-muted-foreground text-sm ml-1">USDT</span>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  // Payment details screen
+  if (currentStep === 'payment-details') {
+    // Pakistani Bank Payment Details
+    if (paymentMethod === 'pakistan-bank') {
+      return (
+        <div className="min-h-screen bg-background">
+          <header className="border-b border-border/50 bg-card/50 backdrop-blur-sm sticky top-0 z-50">
+            <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setCurrentStep('select-method')}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back
+              </Button>
+              <h1 className="text-xl font-bold text-gradient">GM Binary Pro</h1>
+              <div className="w-20" />
+            </div>
+          </header>
+
+          <main className="container mx-auto px-4 py-12">
+            <Card className="glass-card max-w-lg mx-auto">
+              <CardHeader className="text-center">
+                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-success/10 border border-success/30 mx-auto mb-4">
+                  <Building2 className="w-5 h-5 text-success" />
+                  <span className="text-success font-semibold">Pakistani Banks</span>
+                </div>
+                <CardTitle className="text-2xl text-foreground">
+                  Scan QR Code to Pay
+                </CardTitle>
+                <CardDescription>
+                  Use any Pakistani bank app to scan and pay
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* QR Code */}
+                <div className="bg-white p-4 rounded-xl mx-auto w-fit">
+                  <img 
+                    src={pakistanBankQR} 
+                    alt="Payment QR Code" 
+                    className="w-64 h-64 object-contain"
+                  />
+                </div>
+
+                {/* Amount */}
+                <div className="bg-secondary/50 p-4 rounded-xl border border-border text-center">
+                  <p className="text-sm text-muted-foreground mb-1">Amount to Pay</p>
+                  <p className="text-3xl font-bold text-success">Rs. {PAYMENT_CONFIG.pakistanBankPrice} PKR</p>
+                </div>
+
+                {/* Steps */}
+                <div className="space-y-3">
+                  <h4 className="font-semibold text-foreground">Steps:</h4>
+                  <ol className="space-y-2 text-sm text-muted-foreground">
+                    <li className="flex gap-2">
+                      <span className="text-success font-bold">1.</span>
+                      Open your bank app (JazzCash, Easypaisa, HBL, UBL, etc.)
+                    </li>
+                    <li className="flex gap-2">
+                      <span className="text-success font-bold">2.</span>
+                      Scan the QR code above
+                    </li>
+                    <li className="flex gap-2">
+                      <span className="text-success font-bold">3.</span>
+                      Pay Rs. {PAYMENT_CONFIG.pakistanBankPrice}
+                    </li>
+                    <li className="flex gap-2">
+                      <span className="text-success font-bold">4.</span>
+                      Take a screenshot of payment confirmation
+                    </li>
+                  </ol>
+                </div>
+
+                {/* Payment Done Button */}
+                <Button 
+                  className="w-full bg-success hover:bg-success/90" 
+                  size="lg"
+                  onClick={handlePaymentDone}
+                >
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  Payment Done
+                </Button>
+
+                <p className="text-xs text-center text-muted-foreground">
+                  After payment is verified, you'll receive your VIP login credentials via email.
+                </p>
+              </CardContent>
+            </Card>
+          </main>
+        </div>
+      );
+    }
+
+    // Binance Payment Details (existing)
+    return (
+      <div className="min-h-screen bg-background">
+        <header className="border-b border-border/50 bg-card/50 backdrop-blur-sm sticky top-0 z-50">
+          <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setCurrentStep('select-method')}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back
+            </Button>
+            <h1 className="text-xl font-bold text-gradient">GM Binary Pro</h1>
+            <div className="w-20" />
+          </div>
+        </header>
+
+        <main className="container mx-auto px-4 py-12">
           <Card className="glass-card max-w-lg mx-auto">
             <CardHeader className="text-center">
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/30 mx-auto mb-4">
-                <Crown className="w-5 h-5 text-primary" />
-                <span className="text-primary font-semibold">VIP Upgrade</span>
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-warning/10 border border-warning/30 mx-auto mb-4">
+                <Wallet className="w-5 h-5 text-warning" />
+                <span className="text-warning font-semibold">Binance Pay</span>
               </div>
               <CardTitle className="text-2xl text-foreground">
                 Pay with Binance Pay
@@ -87,7 +265,7 @@ const Pricing = () => {
               <div className="bg-secondary/50 p-4 rounded-xl border border-border">
                 <p className="text-sm text-muted-foreground mb-2">Binance Pay ID</p>
                 <div className="flex items-center gap-2">
-                  <code className="bg-background px-3 py-2 rounded-lg text-primary font-mono text-lg flex-1 text-center">
+                  <code className="bg-background px-3 py-2 rounded-lg text-warning font-mono text-lg flex-1 text-center">
                     {PAYMENT_CONFIG.binancePayId}
                   </code>
                   <Button size="sm" variant="outline" onClick={handleCopyBinanceId}>
@@ -99,7 +277,7 @@ const Pricing = () => {
               {/* Amount */}
               <div className="bg-secondary/50 p-4 rounded-xl border border-border text-center">
                 <p className="text-sm text-muted-foreground mb-1">Amount to Send</p>
-                <p className="text-3xl font-bold text-primary">${PAYMENT_CONFIG.vipPrice} USDT</p>
+                <p className="text-3xl font-bold text-warning">${PAYMENT_CONFIG.vipPrice} USDT</p>
               </div>
 
               {/* Steps */}
@@ -107,19 +285,19 @@ const Pricing = () => {
                 <h4 className="font-semibold text-foreground">Steps:</h4>
                 <ol className="space-y-2 text-sm text-muted-foreground">
                   <li className="flex gap-2">
-                    <span className="text-primary font-bold">1.</span>
+                    <span className="text-warning font-bold">1.</span>
                     Open Binance App → Pay → Send
                   </li>
                   <li className="flex gap-2">
-                    <span className="text-primary font-bold">2.</span>
+                    <span className="text-warning font-bold">2.</span>
                     Enter the Pay ID above
                   </li>
                   <li className="flex gap-2">
-                    <span className="text-primary font-bold">3.</span>
+                    <span className="text-warning font-bold">3.</span>
                     Send ${PAYMENT_CONFIG.vipPrice} USDT
                   </li>
                   <li className="flex gap-2">
-                    <span className="text-primary font-bold">4.</span>
+                    <span className="text-warning font-bold">4.</span>
                     Take a screenshot of payment confirmation
                   </li>
                 </ol>
@@ -127,8 +305,7 @@ const Pricing = () => {
 
               {/* Payment Done Button */}
               <Button 
-                className="w-full" 
-                variant="analyze"
+                className="w-full bg-warning hover:bg-warning/90 text-warning-foreground" 
                 size="lg"
                 onClick={handlePaymentDone}
               >
@@ -252,6 +429,7 @@ const Pricing = () => {
               <div className="mt-4">
                 <span className="text-4xl font-bold text-primary">${PAYMENT_CONFIG.vipPrice}</span>
                 <span className="text-muted-foreground">/month</span>
+                <span className="text-sm text-muted-foreground ml-2">or Rs. {PAYMENT_CONFIG.pakistanBankPrice} PKR</span>
               </div>
             </CardHeader>
             <CardContent className="space-y-4">

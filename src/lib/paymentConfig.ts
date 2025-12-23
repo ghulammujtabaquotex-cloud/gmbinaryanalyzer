@@ -6,6 +6,9 @@ export const PAYMENT_CONFIG = {
   vipDurationDays: 30, // 1 month
   vipDailyLimit: 20,
   freeDailyLimit: 3,
+  // Pakistani Bank Payment
+  pakistanBankPrice: 699,
+  pakistanCurrency: 'PKR',
 };
 
 export const VIP_FEATURES = [
