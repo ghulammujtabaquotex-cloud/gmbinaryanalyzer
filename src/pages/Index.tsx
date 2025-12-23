@@ -302,10 +302,12 @@ const Index = () => {
             </p>
           </div>
 
-          {/* Usage Warning */}
-          <div className="flex justify-center">
-            <UsageWarning remaining={remaining} dailyLimit={dailyLimit} isVip={isVip} />
-          </div>
+          {/* Usage Warning - Only show for VIP users */}
+          {isVip && (
+            <div className="flex justify-center">
+              <UsageWarning remaining={remaining} dailyLimit={dailyLimit} isVip={isVip} />
+            </div>
+          )}
 
           {/* VIP Notice */}
           {showVIPNotice && (
@@ -346,16 +348,16 @@ const Index = () => {
                       </a>{" "}
                       AND SEND TRADER ID: WHATSAPP +923313063104
                     </p>
+                    <p className="text-sm text-primary font-semibold">
+                      Want premium features?{" "}
+                      <a
+                        href="/pricing"
+                        className="underline hover:text-primary/80"
+                      >
+                        BUY PLAN
+                      </a>
+                    </p>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => navigate("/pricing")}
-                    className="border-primary text-primary hover:bg-primary/10"
-                  >
-                    <Crown className="w-4 h-4 mr-2" />
-                    Upgrade to VIP
-                  </Button>
                 </div>
               </div>
             ) : pendingFeedback && analysisResult ? (
