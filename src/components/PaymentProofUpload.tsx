@@ -18,7 +18,7 @@ export const PaymentProofUpload = ({ onBack }: PaymentProofUploadProps) => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isSubmitted, setIsSubmitted] = useState(false);
-  const [submittedEmail, setSubmittedEmail] = useState('');
+  const [accessToken, setAccessToken] = useState('');
   const [email, setEmail] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -98,23 +98,26 @@ export const PaymentProofUpload = ({ onBack }: PaymentProofUploadProps) => {
         return;
       }
 
-      // Create payment request record (anonymous)
-      const { error: insertError } = await supabase
+      // Create payment request record (anonymous) and get the access_token
+      const { data: insertedData, error: insertError } = await supabase
         .from('payment_requests')
         .insert({
           amount: PAYMENT_CONFIG.vipPrice,
           proof_image_url: fileName,
           email: email,
           status: 'pending',
-        });
+        })
+        .select('access_token')
+        .single();
 
-      if (insertError) {
+      if (insertError || !insertedData?.access_token) {
         console.error('Insert error:', insertError);
         toast.error('Failed to submit payment request. Please try again.');
         return;
       }
 
-      setSubmittedEmail(email);
+      // Save the access token for status tracking
+      setAccessToken(insertedData.access_token);
       setIsSubmitted(true);
       toast.success('Payment proof submitted successfully!');
     } catch (error) {
@@ -126,8 +129,8 @@ export const PaymentProofUpload = ({ onBack }: PaymentProofUploadProps) => {
   };
 
   // Show status tracker after submission
-  if (isSubmitted && submittedEmail) {
-    return <PaymentStatusTracker email={submittedEmail} onBack={onBack} />;
+  if (isSubmitted && accessToken) {
+    return <PaymentStatusTracker accessToken={accessToken} onBack={onBack} />;
   }
 
   return (
@@ -153,7 +156,7 @@ export const PaymentProofUpload = ({ onBack }: PaymentProofUploadProps) => {
           <CardHeader className="text-center">
             <CardTitle className="text-2xl text-foreground">Upload Payment Proof</CardTitle>
             <CardDescription>
-              Upload a screenshot of your completed Binance payment for ${PAYMENT_CONFIG.vipPrice} {PAYMENT_CONFIG.currency}
+              Upload a screenshot of your completed payment
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -169,7 +172,7 @@ export const PaymentProofUpload = ({ onBack }: PaymentProofUploadProps) => {
                 className="bg-background"
               />
               <p className="text-xs text-muted-foreground">
-                We'll send your VIP login credentials to this email after approval
+                This will be your VIP account login email
               </p>
             </div>
 
@@ -235,7 +238,7 @@ export const PaymentProofUpload = ({ onBack }: PaymentProofUploadProps) => {
                 Screenshot should include:
               </h4>
               <ul className="text-muted-foreground text-sm space-y-1">
-                <li>• Payment amount ({PAYMENT_CONFIG.currency} {PAYMENT_CONFIG.vipPrice})</li>
+                <li>• Payment amount</li>
                 <li>• Transaction date and time</li>
                 <li>• Payment status (Completed/Successful)</li>
               </ul>
