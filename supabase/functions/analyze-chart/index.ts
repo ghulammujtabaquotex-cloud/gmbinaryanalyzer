@@ -745,8 +745,35 @@ serve(async (req) => {
           );
 
           if (!geminiResp.ok) {
-            const geminiErr = await geminiResp.text().catch(() => "");
-            console.error("Gemini fallback error:", geminiResp.status, geminiErr);
+            const geminiErrText = await geminiResp.text().catch(() => "");
+            console.error("Gemini fallback error:", geminiResp.status, geminiErrText);
+
+            // If your Gemini project is rate-limited / quota exceeded, surface retry seconds to the client
+            if (geminiResp.status === 429) {
+              let retryAfterSeconds: number | undefined;
+              try {
+                const parsed = JSON.parse(geminiErrText);
+                const retryDelay = parsed?.error?.details?.find((d: any) => d?.["@type"]?.includes("RetryInfo"))?.retryDelay as
+                  | string
+                  | undefined;
+                const m = retryDelay?.match(/(\d+)/);
+                if (m) retryAfterSeconds = Number(m[1]);
+              } catch {
+                // ignore
+              }
+
+              clearTimeout(timeoutId);
+              return new Response(
+                JSON.stringify({
+                  error:
+                    "⚠️ Analysis busy\n\nGemini quota/rate limit reached. Please wait a few seconds and try again.",
+                  apiUnavailable: true,
+                  retryAfterSeconds: retryAfterSeconds ?? 15,
+                }),
+                { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+              );
+            }
+
             clearTimeout(timeoutId);
             return new Response(
               JSON.stringify({
