@@ -529,45 +529,55 @@ serve(async (req) => {
 
     // Same high-quality model and analysis for all users
     // VIP benefits: more daily analyses (20 vs 3), signal history, personal stats, PDF exports
-    const model = "google/gemini-2.5-pro";
+    // Using user's own Gemini API key directly
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    if (!GEMINI_API_KEY) {
+      console.error("GEMINI_API_KEY not configured");
+      return new Response(
+        JSON.stringify({ 
+          error: "⚠️ Analysis unavailable\n\nGemini API key not configured.\n\nNo signal generated to avoid random trades.",
+          apiUnavailable: true
+        }),
+        { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const model = "gemini-2.5-pro-preview-06-05";
     const systemPrompt = freeSystemPrompt; // Now using the same advanced prompt for everyone
     const analysisInstruction = "Analyze this trading chart using the advanced 6-step method: 1) Consider multi-timeframe context, 2) Count candles and identify trend structure with momentum analysis, 3) Mark confluence support/resistance zones, 4) Identify high-probability candlestick patterns, 5) Run your entry confirmation checklist, 6) Score your confidence (only signal if 7+). Your analysis must be HIGHLY ACCURATE and REPRODUCIBLE. Focus on what the chart SHOWS. Respond with JSON only.";
 
-    console.log(`Using model: ${model} for ${isVip ? 'VIP' : 'FREE'} user (same quality for all)`);
+    console.log(`Using Gemini API directly with model: ${model} for ${isVip ? 'VIP' : 'FREE'} user`);
 
-    // Add timeout for AI gateway request (55 seconds)
+    // Add timeout for Gemini API request (55 seconds)
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 55000);
 
     let response: Response;
     try {
-      response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`, {
         method: "POST",
         signal: controller.signal,
         headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: model,
-          messages: [
-            { role: "system", content: systemPrompt },
+          contents: [
             {
-              role: "user",
-              content: [
-              {
-                  type: "text",
-                  text: analysisInstruction,
-                },
+              parts: [
+                { text: systemPrompt + "\n\n" + analysisInstruction },
                 {
-                  type: "image_url",
-                  image_url: {
-                    url: imageBase64,
+                  inline_data: {
+                    mime_type: "image/png",
+                    data: imageBase64.replace(/^data:image\/[a-z]+;base64,/, ""),
                   },
                 },
               ],
             },
           ],
+          generationConfig: {
+            temperature: 0.1,
+            maxOutputTokens: 2048,
+          },
         }),
       });
       clearTimeout(timeoutId);
@@ -595,7 +605,8 @@ serve(async (req) => {
     }
 
     const data = await response.json();
-    const content = data.choices?.[0]?.message?.content;
+    // Gemini API response format: candidates[0].content.parts[0].text
+    const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
 
     if (!content) {
       console.error("ERR_EMPTY_RESPONSE: External AI returned no content");
