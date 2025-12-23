@@ -94,6 +94,18 @@ export const PaymentProofUpload = ({ onBack }: PaymentProofUploadProps) => {
     setIsUploading(true);
 
     try {
+      // Check if email is already a VIP
+      const { data: isVip, error: checkError } = await supabase
+        .rpc('check_email_is_vip', { p_email: email });
+
+      if (checkError) {
+        console.error('Check VIP error:', checkError);
+      } else if (isVip) {
+        toast.error('This email is already registered as VIP. Please use a different email or login with your existing account.');
+        setIsUploading(false);
+        return;
+      }
+
       // Generate unique filename
       const fileExt = selectedFile.name.split('.').pop();
       const fileName = `anonymous/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;

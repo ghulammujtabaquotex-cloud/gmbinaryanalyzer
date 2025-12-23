@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-
+import { addToPaymentHistory } from './PaymentHistory';
 interface PaymentStatusTrackerProps {
   accessToken: string;
   onBack: () => void;
@@ -44,6 +44,11 @@ export const PaymentStatusTracker = ({ accessToken, onBack, onNewPayment }: Paym
       // RPC returns array, get first result
       const paymentData = data?.[0] || null;
       setPayment(paymentData as PaymentData | null);
+      
+      // Save to payment history if approved with credentials
+      if (paymentData?.status === 'approved' && paymentData.generated_password && paymentData.email) {
+        addToPaymentHistory(paymentData.email, paymentData.generated_password);
+      }
     } catch (error) {
       console.error('Error:', error);
     } finally {

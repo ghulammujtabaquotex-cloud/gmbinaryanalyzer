@@ -232,6 +232,7 @@ export type Database = {
           remaining: number
         }[]
       }
+      check_email_is_vip: { Args: { p_email: string }; Returns: boolean }
       check_ip_usage: {
         Args: {
           p_daily_limit: number
