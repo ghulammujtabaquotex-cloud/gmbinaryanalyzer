@@ -323,7 +323,42 @@ const Index = () => {
               <Activity className="w-4 h-4" />
               <span>Step 1: Upload Chart Screenshot</span>
             </div>
-            {pendingFeedback && analysisResult ? (
+            {/* Free users see disabled message */}
+            {!isVip ? (
+              <div className="flex flex-col items-center justify-center w-full h-64 rounded-xl glass-card gradient-border bg-muted/20">
+                <div className="flex flex-col items-center justify-center text-center p-6 space-y-4">
+                  <div className="p-4 rounded-full bg-destructive/20">
+                    <Activity className="w-8 h-8 text-destructive" />
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-lg font-bold text-destructive">
+                      NOTE: THE FREE PLAN LIMIT NOW CLOSE
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      OR CREATE ACCOUNT WITH THIS LINK{" "}
+                      <a
+                        href="https://broker-qx.pro/sign-up/?lid=1416949"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary font-bold hover:underline"
+                      >
+                        CLICK HERE
+                      </a>{" "}
+                      AND SEND TRADER ID: WHATSAPP +923313063104
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => navigate("/pricing")}
+                    className="border-primary text-primary hover:bg-primary/10"
+                  >
+                    <Crown className="w-4 h-4 mr-2" />
+                    Upgrade to VIP
+                  </Button>
+                </div>
+              </div>
+            ) : pendingFeedback && analysisResult ? (
               <div 
                 onClick={() => {
                   const feedbackSection = document.getElementById('feedback-section');
@@ -354,8 +389,8 @@ const Index = () => {
             )}
           </section>
 
-          {/* Analyze Button - Hidden when pending feedback */}
-          {!pendingFeedback && (
+          {/* Analyze Button - Hidden when pending feedback or for free users */}
+          {!pendingFeedback && isVip && (
             <div className="flex justify-center">
               <Button
                 variant="analyze"
