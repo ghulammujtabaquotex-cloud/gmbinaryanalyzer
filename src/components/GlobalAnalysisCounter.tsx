@@ -12,19 +12,19 @@ export function GlobalAnalysisCounter() {
     // Initial fetch
     fetchCount();
 
-    // Set up real-time subscription for trade_results
+    // Set up real-time subscription for ip_usage (all chart analyses)
     const channel = supabase
       .channel('global-analysis-counter')
       .on(
         'postgres_changes',
         {
-          event: 'INSERT',
+          event: '*',
           schema: 'public',
-          table: 'trade_results'
+          table: 'ip_usage'
         },
         () => {
-          // Increment count and show update animation
-          setCount(prev => (prev !== null ? prev + 1 : null));
+          // Refetch count and show update animation
+          fetchCount();
           triggerUpdateAnimation();
         }
       )
@@ -43,12 +43,14 @@ export function GlobalAnalysisCounter() {
 
   const fetchCount = async () => {
     try {
-      const { count: totalCount, error } = await supabase
-        .from('trade_results')
-        .select('*', { count: 'exact', head: true });
+      // Sum all request_count from ip_usage to get total analyses
+      const { data, error } = await supabase
+        .from('ip_usage')
+        .select('request_count');
 
-      if (!error && totalCount !== null) {
-        setCount(totalCount);
+      if (!error && data) {
+        const total = data.reduce((sum, row) => sum + (row.request_count || 0), 0);
+        setCount(total);
       }
     } catch (err) {
       console.error('Error fetching count:', err);
