@@ -542,7 +542,7 @@ serve(async (req) => {
       );
     }
 
-    const model = "gemini-1.5-pro";
+    const model = "gemini-1.5-flash-latest";
     const systemPrompt = freeSystemPrompt; // Now using the same advanced prompt for everyone
     const analysisInstruction = "Analyze this trading chart using the advanced 6-step method: 1) Consider multi-timeframe context, 2) Count candles and identify trend structure with momentum analysis, 3) Mark confluence support/resistance zones, 4) Identify high-probability candlestick patterns, 5) Run your entry confirmation checklist, 6) Score your confidence (only signal if 7+). Your analysis must be HIGHLY ACCURATE and REPRODUCIBLE. Focus on what the chart SHOWS. Respond with JSON only.";
 
@@ -552,53 +552,64 @@ serve(async (req) => {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 55000);
 
+    // Extract mime type + base64 payload from the data URL
+    const mimeMatch = imageBase64.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,/);
+    const mimeType = mimeMatch?.[1] ?? "image/png";
+    const base64Payload = imageBase64.replace(/^data:image\/[a-zA-Z0-9.+-]+;base64,/, "");
+
     let response: Response;
     try {
-      response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`, {
-        method: "POST",
-        signal: controller.signal,
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                { text: systemPrompt + "\n\n" + analysisInstruction },
-                {
-                  inline_data: {
-                    mime_type: "image/png",
-                    data: imageBase64.replace(/^data:image\/[a-z]+;base64,/, ""),
-                  },
-                },
-              ],
-            },
-          ],
-          generationConfig: {
-            temperature: 0.1,
-            maxOutputTokens: 2048,
+      response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`,
+        {
+          method: "POST",
+          signal: controller.signal,
+          headers: {
+            "Content-Type": "application/json",
           },
-        }),
-      });
+          body: JSON.stringify({
+            contents: [
+              {
+                parts: [
+                  { text: systemPrompt + "\n\n" + analysisInstruction },
+                  {
+                    inline_data: {
+                      mime_type: mimeType,
+                      data: base64Payload,
+                    },
+                  },
+                ],
+              },
+            ],
+            generationConfig: {
+              temperature: 0.1,
+              maxOutputTokens: 2048,
+            },
+          }),
+        }
+      );
       clearTimeout(timeoutId);
     } catch (err) {
       clearTimeout(timeoutId);
       console.error("External AI API error:", err);
       return new Response(
-        JSON.stringify({ 
-          error: "⚠️ Analysis unavailable\n\nExternal AI API not responding.\n\nNo signal generated to avoid random trades.",
-          apiUnavailable: true
+        JSON.stringify({
+          error:
+            "⚠️ Analysis unavailable\n\nExternal AI API not responding.\n\nNo signal generated to avoid random trades.",
+          apiUnavailable: true,
         }),
         { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     if (!response.ok) {
-      console.error("External AI API error:", response.status);
+      const errText = await response.text().catch(() => "");
+      console.error("External AI API error:", response.status, errText);
       return new Response(
-        JSON.stringify({ 
-          error: "⚠️ Analysis unavailable\n\nExternal AI API not responding.\n\nNo signal generated to avoid random trades.",
-          apiUnavailable: true
+        JSON.stringify({
+          error:
+            "⚠️ Analysis unavailable\n\nExternal AI API not responding.\n\nNo signal generated to avoid random trades.",
+          apiUnavailable: true,
         }),
         { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
