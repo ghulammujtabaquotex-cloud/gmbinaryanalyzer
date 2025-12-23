@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
+import { PAYMENT_CONFIG } from '@/lib/paymentConfig';
 
 export const useAdmin = () => {
   const { user } = useAuth();
@@ -9,6 +10,13 @@ export const useAdmin = () => {
 
   const checkAdminStatus = useCallback(async () => {
     if (!user) {
+      setIsAdmin(false);
+      setIsLoading(false);
+      return;
+    }
+
+    // Only owner email can be admin
+    if (user.email !== PAYMENT_CONFIG.ownerEmail) {
       setIsAdmin(false);
       setIsLoading(false);
       return;

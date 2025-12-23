@@ -5,7 +5,8 @@ export const PAYMENT_CONFIG = {
   currency: 'USDT',
   vipDurationDays: 30, // 1 month
   vipDailyLimit: 20,
-  freeDailyLimit: 5,
+  freeDailyLimit: 3,
+  ownerEmail: 'ghulammujtabaquotex@gmail.com',
 };
 
 export const VIP_FEATURES = [
