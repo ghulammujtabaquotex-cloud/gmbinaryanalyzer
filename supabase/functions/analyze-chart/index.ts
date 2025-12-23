@@ -593,7 +593,7 @@ serve(async (req) => {
       console.error("ERR_CONFIG: Missing Supabase config");
       return new Response(
         JSON.stringify({ error: "Service temporarily unavailable. Please try again later." }),
-        { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -614,13 +614,13 @@ serve(async (req) => {
     
     if (!canAnalyze) {
       return new Response(
-        JSON.stringify({ 
+        JSON.stringify({
           error: "Daily limit reached",
           limitReached: true,
           message: isVip ? "VIP daily limit reached. Try again tomorrow!" : "JOIN VIP FOR MORE CREDIT",
-          isVip
+          isVip,
         }),
-        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -630,8 +630,8 @@ serve(async (req) => {
     const validation = validateImageInput(imageBase64);
     if (!validation.valid) {
       return new Response(
-        JSON.stringify({ error: validation.error }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ error: validation.error, validationError: true }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -646,7 +646,7 @@ serve(async (req) => {
             "⚠️ Analysis unavailable\n\nAI is not configured.\n\nNo signal generated to avoid random trades.",
           apiUnavailable: true,
         }),
-        { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -698,7 +698,7 @@ serve(async (req) => {
             "⚠️ Analysis unavailable\n\nAI is temporarily unavailable.\n\nNo signal generated to avoid random trades.",
           apiUnavailable: true,
         }),
-        { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -715,7 +715,7 @@ serve(async (req) => {
             apiUnavailable: true,
             retryAfterSeconds: 60,
           }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
@@ -725,7 +725,7 @@ serve(async (req) => {
             "⚠️ Analysis unavailable\n\nAI is temporarily unavailable.\n\nNo signal generated to avoid random trades.",
           apiUnavailable: true,
         }),
-        { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -740,7 +740,7 @@ serve(async (req) => {
             "⚠️ Analysis unavailable\n\nAI returned an empty response.\n\nNo signal generated to avoid random trades.",
           apiUnavailable: true,
         }),
-        { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -752,11 +752,12 @@ serve(async (req) => {
     } catch {
       console.error("ERR_PARSE: Failed to parse external AI response");
       return new Response(
-        JSON.stringify({ 
-          error: "⚠️ Analysis unavailable\n\nExternal AI API returned invalid response.\n\nNo signal generated to avoid random trades.",
-          apiUnavailable: true
+        JSON.stringify({
+          error:
+            "⚠️ Analysis unavailable\n\nAI returned invalid response.\n\nNo signal generated to avoid random trades.",
+          apiUnavailable: true,
         }),
-        { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -832,11 +833,11 @@ serve(async (req) => {
   } catch (err) {
     console.error("ERR_UNEXPECTED:", err);
     return new Response(
-      JSON.stringify({ 
-        error: "⚠️ Analysis unavailable\n\nExternal AI API not responding.\n\nNo signal generated to avoid random trades.",
-        apiUnavailable: true
+      JSON.stringify({
+        error: "⚠️ Analysis unavailable\n\nAI is temporarily unavailable.\n\nNo signal generated to avoid random trades.",
+        apiUnavailable: true,
       }),
-      { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });
