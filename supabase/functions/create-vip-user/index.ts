@@ -14,12 +14,67 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    
-    // Create admin client
-    const supabase = createClient(supabaseUrl, serviceRoleKey, {
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+
+    // ========== AUTHENTICATION CHECK ==========
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      console.error("No authorization header provided");
+      return new Response(
+        JSON.stringify({ error: "Unauthorized - No authorization header" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Create client with user's auth token to verify identity
+    const supabaseAuth = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: authHeader } },
       auth: { autoRefreshToken: false, persistSession: false }
     });
 
+    // Verify user is authenticated
+    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser();
+    if (authError || !user) {
+      console.error("Authentication failed:", authError);
+      return new Response(
+        JSON.stringify({ error: "Unauthorized - Invalid authentication" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // ========== ADMIN AUTHORIZATION CHECK ==========
+    // Create admin client for role check
+    const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
+      auth: { autoRefreshToken: false, persistSession: false }
+    });
+
+    // Check if user has admin role using the has_role function
+    const { data: roleData, error: roleError } = await supabaseAdmin
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", user.id)
+      .eq("role", "admin")
+      .maybeSingle();
+
+    if (roleError) {
+      console.error("Error checking admin role:", roleError);
+      return new Response(
+        JSON.stringify({ error: "Failed to verify admin status" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (!roleData) {
+      console.error("User is not an admin:", user.id);
+      return new Response(
+        JSON.stringify({ error: "Forbidden - Admin access required" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    console.log("Admin authorization verified for user:", user.id);
+
+    // ========== PROCESS VIP CREATION ==========
     const { email, paymentRequestId } = await req.json();
 
     if (!email || !paymentRequestId) {
@@ -29,11 +84,51 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return new Response(
+        JSON.stringify({ error: "Invalid email format" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Validate paymentRequestId is a valid UUID
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(paymentRequestId)) {
+      return new Response(
+        JSON.stringify({ error: "Invalid payment request ID format" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Verify payment request exists and is pending
+    const { data: paymentRequest, error: prError } = await supabaseAdmin
+      .from("payment_requests")
+      .select("id, status, email")
+      .eq("id", paymentRequestId)
+      .maybeSingle();
+
+    if (prError || !paymentRequest) {
+      console.error("Payment request not found:", prError);
+      return new Response(
+        JSON.stringify({ error: "Payment request not found" }),
+        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (paymentRequest.status !== "pending") {
+      return new Response(
+        JSON.stringify({ error: "Payment request already processed" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // Generate a random password
     const password = generatePassword();
 
     // Check if user already exists
-    const { data: existingUsers } = await supabase.auth.admin.listUsers();
+    const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
     const existingUser = existingUsers?.users?.find(u => u.email === email);
 
     let userId: string;
@@ -43,7 +138,7 @@ Deno.serve(async (req) => {
       userId = existingUser.id;
       
       // Update their password
-      const { error: updateError } = await supabase.auth.admin.updateUserById(userId, {
+      const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(userId, {
         password: password,
       });
 
@@ -54,9 +149,10 @@ Deno.serve(async (req) => {
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
+      console.log("Updated existing user password:", userId);
     } else {
       // Create new user
-      const { data: newUser, error: createError } = await supabase.auth.admin.createUser({
+      const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
         email,
         password,
         email_confirm: true,
@@ -71,6 +167,7 @@ Deno.serve(async (req) => {
       }
 
       userId = newUser.user.id;
+      console.log("Created new user:", userId);
     }
 
     // Calculate expiration date (30 days from now)
@@ -78,7 +175,7 @@ Deno.serve(async (req) => {
     expiresAt.setDate(expiresAt.getDate() + 30);
 
     // Create/update subscription
-    const { error: subError } = await supabase
+    const { error: subError } = await supabaseAdmin
       .from("subscriptions")
       .upsert({
         user_id: userId,
@@ -97,12 +194,13 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Update payment request with user_id, status, and generated password
-    const { error: paymentError } = await supabase
+    // Update payment request with user_id, status, reviewed_by, and generated password
+    const { error: paymentError } = await supabaseAdmin
       .from("payment_requests")
       .update({
         user_id: userId,
         status: "approved",
+        reviewed_by: user.id, // Track which admin approved
         reviewed_at: new Date().toISOString(),
         generated_password: password,
       })
@@ -111,6 +209,8 @@ Deno.serve(async (req) => {
     if (paymentError) {
       console.error("Error updating payment request:", paymentError);
     }
+
+    console.log("VIP creation successful for:", email, "by admin:", user.id);
 
     return new Response(
       JSON.stringify({ 
