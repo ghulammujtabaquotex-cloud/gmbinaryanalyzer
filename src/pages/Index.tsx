@@ -323,7 +323,7 @@ const Index = () => {
               <Activity className="w-4 h-4" />
               <span>Step 1: Upload Chart Screenshot</span>
             </div>
-            {/* Show feedback prompt if pending, otherwise show uploader */}
+            {/* Show feedback prompt if pending, limit reached message for free users, otherwise show uploader */}
             {pendingFeedback && analysisResult ? (
               <div 
                 onClick={() => {
@@ -344,6 +344,47 @@ const Index = () => {
                   <p className="text-sm text-muted-foreground mt-1">
                     Submit result for next trade.
                   </p>
+                </div>
+              </div>
+            ) : !isVip && limitReached ? (
+              <div className="flex flex-col items-center justify-center w-full min-h-64 rounded-xl glass-card gradient-border bg-muted/20">
+                <div className="flex flex-col items-center justify-center text-center p-6 space-y-4">
+                  <div className="p-4 rounded-full bg-destructive/20">
+                    <Activity className="w-8 h-8 text-destructive" />
+                  </div>
+                  <div className="space-y-3">
+                    <p className="text-lg font-bold text-destructive">
+                      Daily Free Limit Reached
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      Want premium features?{" "}
+                      <a
+                        href="/pricing"
+                        className="text-primary font-bold hover:underline"
+                      >
+                        BUY PLAN
+                      </a>
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      OR CREATE ACCOUNT WITH THIS LINK{" "}
+                      <a
+                        href="https://broker-qx.pro/sign-up/?lid=1416949"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary font-bold hover:underline"
+                      >
+                        CLICK HERE
+                      </a>{" "}
+                      AND SEND TRADER ID: WHATSAPP +923313063104
+                    </p>
+                  </div>
+                  <Button
+                    onClick={() => navigate("/pricing")}
+                    className="mt-2 relative overflow-hidden bg-gradient-to-r from-primary via-primary/80 to-primary hover:from-primary/90 hover:via-primary hover:to-primary/90 text-primary-foreground font-bold px-8 py-3 rounded-full shadow-[0_0_20px_hsl(var(--primary)/0.5)] hover:shadow-[0_0_30px_hsl(var(--primary)/0.7)] transition-all duration-300 animate-pulse hover:animate-none"
+                  >
+                    <Zap className="w-5 h-5 mr-2" />
+                    GET NOW
+                  </Button>
                 </div>
               </div>
             ) : (
