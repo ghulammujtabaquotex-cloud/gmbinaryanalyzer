@@ -1,11 +1,22 @@
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Crown } from "lucide-react";
+import { Link } from "react-router-dom";
 
 interface UsageWarningProps {
   remaining: number;
   dailyLimit: number;
+  isVip?: boolean;
 }
 
-export const UsageWarning = ({ remaining, dailyLimit }: UsageWarningProps) => {
+export const UsageWarning = ({ remaining, dailyLimit, isVip }: UsageWarningProps) => {
+  if (isVip) {
+    return (
+      <div className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-primary/10 border border-primary/20 text-sm">
+        <Crown className="w-4 h-4 text-primary" />
+        <span className="text-primary font-semibold">VIP Member - Unlimited Analyses</span>
+      </div>
+    );
+  }
+
   const usedPercentage = ((dailyLimit - remaining) / dailyLimit) * 100;
   
   let bgColor = "bg-primary/10 border-primary/20";
@@ -20,7 +31,7 @@ export const UsageWarning = ({ remaining, dailyLimit }: UsageWarningProps) => {
   }
 
   return (
-    <div className={`flex items-center justify-center gap-2 px-4 py-2 rounded-lg ${bgColor} border text-sm`}>
+    <div className={`flex items-center justify-center gap-2 px-4 py-2 rounded-lg ${bgColor} border text-sm flex-wrap`}>
       {remaining <= 1 && <AlertTriangle className={`w-4 h-4 ${textColor}`} />}
       <span className={textColor}>
         <span className="font-semibold">{remaining}</span> of {dailyLimit} analysis remaining today
@@ -33,6 +44,11 @@ export const UsageWarning = ({ remaining, dailyLimit }: UsageWarningProps) => {
           style={{ width: `${usedPercentage}%` }}
         />
       </div>
+      {remaining <= 2 && (
+        <Link to="/pricing" className="text-primary hover:underline ml-2 font-medium">
+          Upgrade to VIP
+        </Link>
+      )}
     </div>
   );
 };
