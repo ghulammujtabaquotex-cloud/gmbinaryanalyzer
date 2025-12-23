@@ -97,13 +97,14 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Update payment request with user_id and status
+    // Update payment request with user_id, status, and generated password
     const { error: paymentError } = await supabase
       .from("payment_requests")
       .update({
         user_id: userId,
         status: "approved",
         reviewed_at: new Date().toISOString(),
+        generated_password: password,
       })
       .eq("id", paymentRequestId);
 

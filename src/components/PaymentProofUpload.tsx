@@ -1,6 +1,5 @@
 import { useState, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Upload, ImageIcon, Loader2, CheckCircle, X } from 'lucide-react';
+import { ArrowLeft, Upload, ImageIcon, Loader2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -8,17 +7,18 @@ import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { PAYMENT_CONFIG } from '@/lib/paymentConfig';
 import { toast } from 'sonner';
+import { PaymentStatusTracker } from './PaymentStatusTracker';
 
 interface PaymentProofUploadProps {
   onBack: () => void;
 }
 
 export const PaymentProofUpload = ({ onBack }: PaymentProofUploadProps) => {
-  const navigate = useNavigate();
   const [isUploading, setIsUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [submittedEmail, setSubmittedEmail] = useState('');
   const [email, setEmail] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -114,6 +114,7 @@ export const PaymentProofUpload = ({ onBack }: PaymentProofUploadProps) => {
         return;
       }
 
+      setSubmittedEmail(email);
       setIsSubmitted(true);
       toast.success('Payment proof submitted successfully!');
     } catch (error) {
@@ -124,46 +125,9 @@ export const PaymentProofUpload = ({ onBack }: PaymentProofUploadProps) => {
     }
   };
 
-  if (isSubmitted) {
-    return (
-      <div className="min-h-screen bg-background">
-        <header className="border-b border-border/50 bg-card/50 backdrop-blur-sm sticky top-0 z-50">
-          <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => navigate('/')}
-              className="text-muted-foreground hover:text-foreground"
-            >
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Home
-            </Button>
-            <h1 className="text-xl font-bold text-gradient">GM Binary Pro</h1>
-            <div className="w-20" />
-          </div>
-        </header>
-
-        <main className="container mx-auto px-4 py-12 flex items-center justify-center min-h-[60vh]">
-          <Card className="glass-card glow-success max-w-md w-full">
-            <CardContent className="p-8 text-center">
-              <div className="w-16 h-16 rounded-full bg-success/20 flex items-center justify-center mx-auto mb-6">
-                <CheckCircle className="w-10 h-10 text-success" />
-              </div>
-              <h2 className="text-2xl font-bold text-foreground mb-4">
-                Payment Proof Submitted!
-              </h2>
-              <p className="text-muted-foreground mb-6">
-                Your payment is being reviewed. Once approved, you'll receive your VIP login credentials at <strong className="text-foreground">{email}</strong>. 
-                This usually takes less than 24 hours.
-              </p>
-              <Button onClick={() => navigate('/')} className="w-full">
-                Back to Home
-              </Button>
-            </CardContent>
-          </Card>
-        </main>
-      </div>
-    );
+  // Show status tracker after submission
+  if (isSubmitted && submittedEmail) {
+    return <PaymentStatusTracker email={submittedEmail} onBack={onBack} />;
   }
 
   return (
