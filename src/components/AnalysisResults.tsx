@@ -1,5 +1,5 @@
 import { SignalBadge } from "./SignalBadge";
-import { TrendingUp, TrendingDown, Activity, Target, Shield, FileText, AlertTriangle, Crown, Gauge } from "lucide-react";
+import { TrendingUp, TrendingDown, Activity, Target, Shield, FileText, AlertTriangle, Crown, Percent } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface AnalysisData {
@@ -9,9 +9,9 @@ export interface AnalysisData {
   supportZone: string;
   resistanceZone: string;
   explanation: string;
-  confidence?: number;
+  winProbability?: number; // 0-100%
   isVip?: boolean;
-  signalHistoryId?: string; // ID of the signal in signal_history table
+  signalHistoryId?: string;
 }
 
 interface AnalysisResultsProps {
@@ -49,47 +49,60 @@ function ResultCard({
   );
 }
 
-// Extract confidence from explanation if present
-function extractConfidence(explanation: string): number | null {
-  const match = explanation.match(/Confidence:\s*(\d+)\/10/i);
+// Extract win probability from explanation if present
+function extractWinProbability(explanation: string): number | null {
+  const match = explanation.match(/Win probability:\s*(\d+)%/i);
   if (match) {
     return parseInt(match[1], 10);
+  }
+  // Fallback to old confidence format and convert
+  const confMatch = explanation.match(/Confidence:\s*(\d+)\/10/i);
+  if (confMatch) {
+    return parseInt(confMatch[1], 10) * 10;
   }
   return null;
 }
 
-function ConfidenceGauge({ score }: { score: number }) {
+function WinProbabilityGauge({ probability }: { probability: number }) {
   const getColor = () => {
-    if (score >= 8) return "text-success";
-    if (score >= 6) return "text-primary";
-    if (score >= 4) return "text-warning";
+    if (probability >= 80) return "text-success";
+    if (probability >= 70) return "text-primary";
+    if (probability >= 60) return "text-warning";
     return "text-destructive";
   };
 
+  const getBgColor = () => {
+    if (probability >= 80) return "bg-success";
+    if (probability >= 70) return "bg-primary";
+    if (probability >= 60) return "bg-warning";
+    return "bg-destructive";
+  };
+
   const getLabel = () => {
-    if (score >= 8) return "High Confidence";
-    if (score >= 6) return "Good Confidence";
-    if (score >= 4) return "Moderate";
-    return "Low Confidence";
+    if (probability >= 85) return "Very High";
+    if (probability >= 75) return "High";
+    if (probability >= 65) return "Good";
+    if (probability >= 55) return "Moderate";
+    return "Low";
   };
 
   return (
-    <div className="flex items-center gap-3">
-      <div className="flex items-center gap-1">
-        {[...Array(10)].map((_, i) => (
-          <div
-            key={i}
-            className={cn(
-              "w-2 h-4 rounded-sm transition-colors",
-              i < score 
-                ? score >= 8 ? "bg-success" : score >= 6 ? "bg-primary" : score >= 4 ? "bg-warning" : "bg-destructive"
-                : "bg-muted"
-            )}
-          />
-        ))}
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <span className={cn("text-2xl font-bold", getColor())}>{probability}%</span>
+        <span className="text-xs text-muted-foreground px-2 py-1 rounded-full bg-muted">
+          {getLabel()}
+        </span>
       </div>
-      <span className={cn("font-bold", getColor())}>{score}/10</span>
-      <span className="text-xs text-muted-foreground">({getLabel()})</span>
+      <div className="w-full h-3 bg-muted rounded-full overflow-hidden">
+        <div 
+          className={cn("h-full rounded-full transition-all duration-500", getBgColor())}
+          style={{ width: `${probability}%` }}
+        />
+      </div>
+      <p className="text-xs text-muted-foreground text-center">
+        Probability of next candle going in signal direction
+      </p>
     </div>
   );
 }
@@ -99,8 +112,8 @@ export function AnalysisResults({ data, isVip = false }: AnalysisResultsProps) {
   const trendColor = data.trend === "Uptrend" ? "text-success" : data.trend === "Downtrend" ? "text-destructive" : "text-warning";
   const isTradeSignal = data.signal === "CALL" || data.signal === "PUT";
 
-  // Extract confidence from explanation for VIP users
-  const confidence = data.confidence || extractConfidence(data.explanation);
+  // Get win probability
+  const winProbability = data.winProbability || extractWinProbability(data.explanation);
 
   return (
     <div className="space-y-4">
@@ -124,19 +137,17 @@ export function AnalysisResults({ data, isVip = false }: AnalysisResultsProps) {
           <p className="text-xs uppercase tracking-wider text-muted-foreground mb-3">Next Candle Bias</p>
           <SignalBadge signal={data.signal} size="lg" />
           <p className="text-xs text-muted-foreground mt-3">
-            {isVip ? "Advanced multi-timeframe analysis" : "Based on 1-minute timeframe analysis"}
+            Based on advanced price action analysis
           </p>
           
-          {/* Confidence Score - VIP Only */}
-          {isVip && confidence && (
-            <div className="mt-4 pt-3 border-t border-border/50">
-              <div className="flex items-center justify-center gap-2 mb-2 text-muted-foreground">
-                <Gauge className="w-4 h-4" />
-                <span className="text-xs uppercase tracking-wider">Signal Confidence</span>
+          {/* Win Probability - Show for ALL users when signal is CALL/PUT */}
+          {isTradeSignal && winProbability && (
+            <div className="mt-4 pt-4 border-t border-border/50">
+              <div className="flex items-center justify-center gap-2 mb-3 text-muted-foreground">
+                <Percent className="w-4 h-4" />
+                <span className="text-xs uppercase tracking-wider">Win Probability</span>
               </div>
-              <div className="flex justify-center">
-                <ConfidenceGauge score={confidence} />
-              </div>
+              <WinProbabilityGauge probability={winProbability} />
             </div>
           )}
           
@@ -187,7 +198,7 @@ export function AnalysisResults({ data, isVip = false }: AnalysisResultsProps) {
           <div className="flex items-center gap-2 text-muted-foreground mb-3">
             <FileText className="w-4 h-4" />
             <span className="text-xs uppercase tracking-wider font-medium">
-              {isVip ? "Advanced Price Action Analysis" : "Price Action Analysis"}
+              Price Action Analysis
             </span>
           </div>
           <p className="text-sm text-foreground/90 leading-relaxed">{data.explanation}</p>
