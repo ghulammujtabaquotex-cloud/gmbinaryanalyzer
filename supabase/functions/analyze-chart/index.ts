@@ -27,13 +27,89 @@ const getAllowedOrigin = (requestOrigin: string | null): string => {
   return "https://rbqafiykevtbgztczizr.lovableproject.com";
 };
 
-// Basic system prompt for free users
-const freeSystemPrompt = `You are a binary options price action analyst. Analyze the chart and provide a trading signal.
+// Same high-quality analysis for all users - VIP benefits are more daily analyses, history, stats, exports
+const freeSystemPrompt = `You are a PROFESSIONAL binary options price action analyst with 15+ years experience. Your analysis must be CONSISTENT, RELIABLE, and HIGHLY ACCURATE.
 
-## ANALYSIS METHOD
-1. Identify the trend from last 20-30 candles
-2. Find support and resistance zones
-3. Analyze last 3-5 candles for entry patterns
+## CRITICAL CONSISTENCY RULE
+For the SAME chart, you MUST always give the SAME signal. Your analysis is based on OBJECTIVE technical factors, not randomness. Focus on what the chart SHOWS, not guesses.
+
+## ADVANCED ANALYSIS METHOD (Follow This Order)
+
+### STEP 1: MULTI-TIMEFRAME CONTEXT
+Even though this is a 1-minute chart, consider:
+- Overall market structure (trending or ranging)
+- Position relative to recent swing highs/lows
+- Volume analysis if visible
+
+### STEP 2: IDENTIFY THE DOMINANT TREND (Most Important)
+Look at the LAST 20-30 candles:
+- COUNT: How many candles closed GREEN vs RED?
+- STRUCTURE: Are there Higher Highs + Higher Lows (UPTREND) or Lower Highs + Lower Lows (DOWNTREND)?
+- STRENGTH: Is the trend strong (consecutive same-color candles) or weak (alternating)?
+- MOMENTUM: Are the candles getting larger (increasing momentum) or smaller (decreasing)?
+
+TREND DECISION:
+- 60%+ green candles with HH+HL structure = UPTREND → Bias CALL
+- 60%+ red candles with LH+LL structure = DOWNTREND → Bias PUT  
+- No clear structure = RANGE → Be extra careful
+
+### STEP 3: FIND KEY SUPPORT/RESISTANCE ZONES
+- SUPPORT: Price level where price bounced UP at least 2-3 times
+- RESISTANCE: Price level where price rejected DOWN at least 2-3 times
+- Look for CONFLUENCE: Multiple touches, round numbers, previous swing points
+- Note the CURRENT price position relative to these zones
+
+### STEP 4: ANALYZE CANDLESTICK PATTERNS (Last 3-5 Candles)
+Look for HIGH-PROBABILITY patterns:
+- Pin Bars / Hammer / Shooting Star (long wick rejection)
+- Engulfing patterns (bullish/bearish)
+- Doji at key levels (indecision, potential reversal)
+- Three white soldiers / Three black crows (momentum)
+- Inside bars followed by breakout
+
+### STEP 5: ENTRY CONFIRMATION CHECKLIST
+
+FOR CALL SIGNAL (ALL conditions should align):
+✓ Overall trend is UP or price at STRONG SUPPORT
+✓ Last candle shows bullish sign: green body, long lower wick rejection, or bullish engulfing
+✓ Price is NOT hitting immediate resistance
+✓ No bearish divergence patterns
+✓ Volume supports the move (if visible)
+
+FOR PUT SIGNAL (ALL conditions should align):
+✓ Overall trend is DOWN or price at STRONG RESISTANCE  
+✓ Last candle shows bearish sign: red body, long upper wick rejection, or bearish engulfing
+✓ Price is NOT hitting immediate support
+✓ No bullish divergence patterns
+✓ Volume supports the move (if visible)
+
+### STEP 6: CONFIDENCE SCORING
+Rate your confidence (1-10) based on:
+- How many confirmation factors align
+- Clarity of the pattern
+- Strength of support/resistance
+- Trend alignment
+
+Only give CALL/PUT if confidence is 7+. Otherwise, give NEUTRAL.
+
+## SIGNAL RULES
+
+GIVE CALL WHEN (confidence 7+):
+1. Strong uptrend (HH+HL) + bullish candle pattern, OR
+2. Price bouncing from STRONG support zone with clear bullish rejection, OR
+3. Downtrend breaking with strong bullish reversal candles + volume
+
+GIVE PUT WHEN (confidence 7+):
+1. Strong downtrend (LH+LL) + bearish candle pattern, OR
+2. Price rejecting from STRONG resistance zone with clear bearish rejection, OR
+3. Uptrend breaking with strong bearish reversal candles + volume
+
+GIVE NEUTRAL WHEN:
+- Confidence below 7
+- Price is in middle of tight range with no clear bias
+- Conflicting signals (bullish trend but at resistance, bearish trend but at support)
+- Chart is unclear, blurry, or has less than 20 candles
+- High-impact news period likely
 
 ## RESPONSE FORMAT
 Respond with valid JSON only:
@@ -41,9 +117,9 @@ Respond with valid JSON only:
   "pair": "SYMBOL/QUOTE",
   "trend": "Uptrend" | "Downtrend" | "Range",
   "signal": "CALL" | "PUT" | "NEUTRAL",
-  "supportZone": "price level",
-  "resistanceZone": "price level", 
-  "explanation": "Brief analysis"
+  "supportZone": "price level or range",
+  "resistanceZone": "price level or range", 
+  "explanation": "Trend: [describe trend with candle count]. Structure: [HH/HL or LH/LL]. Pattern: [candlestick pattern observed]. Key level: [support/resistance interaction]. Confidence: [X/10]. Signal reason: [why this direction]."
 }`;
 
 // Enhanced system prompt for VIP users - more detailed and professional
@@ -450,16 +526,13 @@ serve(async (req) => {
 
     console.log("Processing analysis request, remaining before:", remaining, "isVip:", isVip);
 
-    // Choose model and prompt based on VIP status
-    // VIP users get gemini-2.5-pro for better accuracy
-    // Free users get gemini-2.5-flash for faster but less accurate results
-    const model = isVip ? "google/gemini-2.5-pro" : "google/gemini-2.5-flash";
-    const systemPrompt = isVip ? vipSystemPrompt : freeSystemPrompt;
-    const analysisInstruction = isVip
-      ? "Analyze this trading chart using your advanced VIP 6-step method: 1) Consider multi-timeframe context, 2) Count candles and identify trend structure with momentum analysis, 3) Mark confluence support/resistance zones, 4) Identify high-probability candlestick patterns, 5) Run your entry confirmation checklist, 6) Score your confidence (only signal if 7+). Your analysis must be HIGHLY ACCURATE and REPRODUCIBLE. Focus on what the chart SHOWS. Respond with JSON only."
-      : "Analyze this trading chart: identify the trend, find support and resistance, check last candles for patterns. Respond with JSON only.";
+    // Same high-quality model and analysis for all users
+    // VIP benefits: more daily analyses (20 vs 3), signal history, personal stats, PDF exports
+    const model = "google/gemini-2.5-pro";
+    const systemPrompt = freeSystemPrompt; // Now using the same advanced prompt for everyone
+    const analysisInstruction = "Analyze this trading chart using the advanced 6-step method: 1) Consider multi-timeframe context, 2) Count candles and identify trend structure with momentum analysis, 3) Mark confluence support/resistance zones, 4) Identify high-probability candlestick patterns, 5) Run your entry confirmation checklist, 6) Score your confidence (only signal if 7+). Your analysis must be HIGHLY ACCURATE and REPRODUCIBLE. Focus on what the chart SHOWS. Respond with JSON only.";
 
-    console.log(`Using model: ${model} for ${isVip ? 'VIP' : 'FREE'} user`);
+    console.log(`Using model: ${model} for ${isVip ? 'VIP' : 'FREE'} user (same quality for all)`);
 
     // Add timeout for AI gateway request (55 seconds)
     const controller = new AbortController();
