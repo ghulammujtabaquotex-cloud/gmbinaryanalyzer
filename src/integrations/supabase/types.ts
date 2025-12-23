@@ -137,6 +137,48 @@ export type Database = {
         }
         Relationships: []
       }
+      signal_history: {
+        Row: {
+          confidence: number | null
+          created_at: string
+          explanation: string | null
+          id: string
+          pair: string
+          resistance_zone: string | null
+          result: string | null
+          signal: string
+          support_zone: string | null
+          trend: string
+          user_id: string
+        }
+        Insert: {
+          confidence?: number | null
+          created_at?: string
+          explanation?: string | null
+          id?: string
+          pair: string
+          resistance_zone?: string | null
+          result?: string | null
+          signal: string
+          support_zone?: string | null
+          trend: string
+          user_id: string
+        }
+        Update: {
+          confidence?: number | null
+          created_at?: string
+          explanation?: string | null
+          id?: string
+          pair?: string
+          resistance_zone?: string | null
+          result?: string | null
+          signal?: string
+          support_zone?: string | null
+          trend?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       subscriptions: {
         Row: {
           created_at: string
@@ -266,6 +308,16 @@ export type Database = {
           total_losses: number
           total_trades: number
           total_wins: number
+        }[]
+      }
+      get_user_accuracy: {
+        Args: { p_user_id: string }
+        Returns: {
+          accuracy: number
+          losses: number
+          pending: number
+          total_signals: number
+          wins: number
         }[]
       }
       get_user_tier: {

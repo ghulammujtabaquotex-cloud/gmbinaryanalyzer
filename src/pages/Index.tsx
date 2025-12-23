@@ -5,6 +5,8 @@ import { AnalysisResults, type AnalysisData } from "@/components/AnalysisResults
 import { LoadingAnalysis } from "@/components/LoadingAnalysis";
 import { UsageWarning } from "@/components/UsageWarning";
 import { FeedbackPrompt } from "@/components/FeedbackPrompt";
+import { PersonalStats } from "@/components/PersonalStats";
+import { SignalHistory } from "@/components/SignalHistory";
 import { Button } from "@/components/ui/button";
 import { Activity, BarChart3, Zap, Trophy, ExternalLink, Crown, Settings } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -112,8 +114,8 @@ const Index = () => {
         throw new Error(data.error);
       }
 
-      // Validate and sanitize AI response data
-      const sanitizedData = sanitizeAnalysisData(data);
+      // Validate and sanitize AI response data, include VIP status
+      const sanitizedData = { ...sanitizeAnalysisData(data), isVip: data.isVip };
       setAnalysisResult(sanitizedData);
 
       // Update remaining from response
@@ -378,7 +380,7 @@ const Index = () => {
               {isAnalyzing ? (
                 <LoadingAnalysis />
               ) : analysisResult ? (
-                <AnalysisResults data={analysisResult} />
+                <AnalysisResults data={analysisResult} isVip={isVip} />
               ) : null}
             </section>
           )}
@@ -398,8 +400,16 @@ const Index = () => {
             </section>
           )}
 
+          {/* VIP Features Section */}
+          {isVip && user && !analysisResult && !isAnalyzing && (
+            <section className="space-y-4">
+              <PersonalStats />
+              <SignalHistory />
+            </section>
+          )}
+
           {/* Info Cards */}
-          {!analysisResult && !isAnalyzing && !pendingFeedback && (
+          {!analysisResult && !isAnalyzing && !pendingFeedback && !isVip && (
             <section className="grid md:grid-cols-3 gap-4 pt-8">
               {[
                 {
