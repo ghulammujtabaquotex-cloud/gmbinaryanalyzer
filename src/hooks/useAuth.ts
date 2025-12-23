@@ -32,6 +32,22 @@ export const useAuth = () => {
     }
   }, [user, signOut]);
 
+  // Verify user still exists in database
+  const verifyUserExists = useCallback(async () => {
+    if (!session?.user) return;
+    
+    try {
+      const { data, error } = await supabase.auth.getUser();
+      if (error || !data.user) {
+        console.log("User account no longer exists, signing out...");
+        await supabase.auth.signOut();
+      }
+    } catch (err) {
+      console.error("Error verifying user:", err);
+      await supabase.auth.signOut();
+    }
+  }, [session]);
+
   useEffect(() => {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -39,6 +55,13 @@ export const useAuth = () => {
         setSession(session);
         setUser(session?.user ?? null);
         setIsLoading(false);
+        
+        // If user signed in, verify they still exist
+        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+          setTimeout(() => {
+            verifyUserExists();
+          }, 0);
+        }
       }
     );
 
@@ -47,10 +70,17 @@ export const useAuth = () => {
       setSession(session);
       setUser(session?.user ?? null);
       setIsLoading(false);
+      
+      // Verify user exists on app load
+      if (session?.user) {
+        setTimeout(() => {
+          verifyUserExists();
+        }, 0);
+      }
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [verifyUserExists]);
 
   // Set up inactivity listeners
   useEffect(() => {
