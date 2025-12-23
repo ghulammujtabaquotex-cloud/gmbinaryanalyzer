@@ -48,14 +48,15 @@ const getClientIP = (req: Request): string => {
   return "unknown";
 };
 
-// Rate limiting for anonymous submissions (max 10 per day per IP)
-const ANONYMOUS_DAILY_LIMIT = 10;
+// Per-IP rate limiting for submissions (max 20 per day per IP)
+const SUBMISSION_DAILY_LIMIT = 20;
 
-const checkAnonymousSubmissionRate = async (
+// Check and increment submission count atomically per IP
+const checkAndIncrementSubmission = async (
   supabaseUrl: string,
   serviceRoleKey: string,
   ipAddress: string
-): Promise<boolean> => {
+): Promise<{ allowed: boolean; remaining: number }> => {
   const today = new Date().toISOString().split("T")[0];
   
   const headers = {
@@ -65,38 +66,38 @@ const checkAnonymousSubmissionRate = async (
   };
 
   try {
-    // Check current submission count for this IP today
-    const response = await fetch(
-      `${supabaseUrl}/rest/v1/trade_results?select=id&created_at=gte.${today}T00:00:00Z&user_id=eq.00000000-0000-0000-0000-000000000000`,
+    // Use atomic increment function for per-IP rate limiting
+    const rpcResponse = await fetch(
+      `${supabaseUrl}/rest/v1/rpc/atomic_increment_submission`,
       {
-        method: "GET",
-        headers: {
-          ...headers,
-          "Range": "0-100",
-        },
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          p_ip_address: ipAddress,
+          p_usage_date: today,
+          p_daily_limit: SUBMISSION_DAILY_LIMIT,
+        }),
       }
     );
 
-    if (!response.ok) {
-      console.error("Rate check failed:", response.status);
+    if (!rpcResponse.ok) {
+      console.error("Submission rate check RPC failed:", rpcResponse.status);
       // Fail open for rate checking (allow submission)
-      return true;
+      return { allowed: true, remaining: SUBMISSION_DAILY_LIMIT };
     }
 
-    const contentRange = response.headers.get("content-range");
-    // Parse count from content-range header: "0-X/total"
-    if (contentRange) {
-      const match = contentRange.match(/\/(\d+)/);
-      if (match) {
-        const count = parseInt(match[1], 10);
-        return count < ANONYMOUS_DAILY_LIMIT;
-      }
+    const result = await rpcResponse.json();
+    if (result && result.length > 0) {
+      return { 
+        allowed: result[0].allowed, 
+        remaining: result[0].remaining 
+      };
     }
 
-    return true;
+    return { allowed: true, remaining: SUBMISSION_DAILY_LIMIT };
   } catch (err) {
-    console.error("Rate limit check error:", err);
-    return true; // Fail open
+    console.error("Submission rate limit check error:", err);
+    return { allowed: true, remaining: SUBMISSION_DAILY_LIMIT }; // Fail open
   }
 };
 
@@ -156,9 +157,10 @@ serve(async (req) => {
       );
     }
 
-    // Check rate limit for anonymous submissions
-    const canSubmit = await checkAnonymousSubmissionRate(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, clientIP);
-    if (!canSubmit) {
+    // Check per-IP rate limit for submissions (atomically increments if allowed)
+    const { allowed, remaining } = await checkAndIncrementSubmission(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, clientIP);
+    if (!allowed) {
+      console.log("Rate limit reached for IP:", clientIP.slice(0, 10) + "***");
       return new Response(
         JSON.stringify({ error: "Too many submissions today. Please try again tomorrow." }),
         { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -193,10 +195,10 @@ serve(async (req) => {
       );
     }
 
-    console.log("Result saved successfully for IP:", clientIP.slice(0, 10) + "***");
+    console.log("Result saved successfully for IP:", clientIP.slice(0, 10) + "***", "remaining:", remaining);
 
     return new Response(
-      JSON.stringify({ success: true }),
+      JSON.stringify({ success: true, remaining }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {
