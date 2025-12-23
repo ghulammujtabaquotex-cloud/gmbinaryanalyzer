@@ -1,12 +1,35 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+// Strict CORS validation - only allow trusted origins
+const getAllowedOrigin = (requestOrigin: string | null): string => {
+  if (!requestOrigin) {
+    return "https://rbqafiykevtbgztczizr.lovableproject.com";
+  }
+  
+  const allowedPatterns = [
+    /^https:\/\/rbqafiykevtbgztczizr\.lovableproject\.com$/,
+    /^https:\/\/gmbinarypro\.lovable\.app$/,
+    /^https?:\/\/(localhost|127\.0\.0\.1)(:\d{1,5})?$/,
+  ];
+  
+  for (const pattern of allowedPatterns) {
+    if (pattern.test(requestOrigin)) {
+      return requestOrigin;
+    }
+  }
+  
+  console.log("Rejected origin:", requestOrigin);
+  return "https://rbqafiykevtbgztczizr.lovableproject.com";
 };
 
 Deno.serve(async (req) => {
-  // Handle CORS
+  const origin = req.headers.get("origin");
+  const corsHeaders = {
+    "Access-Control-Allow-Origin": getAllowedOrigin(origin),
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  };
+
+  // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
