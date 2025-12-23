@@ -509,7 +509,7 @@ const Index = () => {
             </a>
           </p>
           <p className="text-center text-xs text-muted-foreground">
-            copyright © GHULAM MUJTABA
+            Copyright © GHULAM MUJTABA
           </p>
         </div>
       </footer>
