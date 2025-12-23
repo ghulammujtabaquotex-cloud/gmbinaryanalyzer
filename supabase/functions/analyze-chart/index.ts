@@ -381,10 +381,10 @@ const validateImageInput = (imageBase64: string): { valid: boolean; error?: stri
     return { valid: false, error: "No image provided" };
   }
 
-  // Tightened limit: 2.5MB base64 = ~2MB actual file size (base64 is ~33% larger)
-  const maxBase64Size = 2.5 * 1024 * 1024;
+  // Allow up to 4MB base64 ≈ 3MB actual file size (frontend compresses to ~1MB)
+  const maxBase64Size = 4 * 1024 * 1024;
   if (imageBase64.length > maxBase64Size) {
-    return { valid: false, error: "Image is too large. Please use an image under 2MB." };
+    return { valid: false, error: "Image is too large. Please use an image under 3MB." };
   }
 
   const dataUriPattern = /^data:image\/(png|jpeg|jpg|gif|webp);base64,/i;
