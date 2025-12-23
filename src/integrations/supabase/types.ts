@@ -241,6 +241,10 @@ export type Database = {
           request_count: number
         }[]
       }
+      check_payment_request_rate: {
+        Args: { p_email: string }
+        Returns: boolean
+      }
       get_trade_statistics: {
         Args: never
         Returns: {
