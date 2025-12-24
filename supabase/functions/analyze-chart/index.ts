@@ -642,7 +642,7 @@ serve(async (req) => {
     const analysisInstruction =
       "Analyze this trading chart using the advanced 6-step method: 1) Consider multi-timeframe context, 2) Count candles and identify trend structure with momentum analysis, 3) Mark confluence support/resistance zones, 4) Identify high-probability candlestick patterns, 5) Run your entry confirmation checklist, 6) Score your confidence (only signal if 7+). Your analysis must be HIGHLY ACCURATE and REPRODUCIBLE. Focus on what the chart SHOWS. Respond with JSON only.";
 
-    const model = "nvidia/nemotron-3-nano-30b-a3b:free";
+    const model = "google/gemini-2.0-flash-exp:free";
     console.log(`Using OpenRouter model: ${model} for ${isVip ? "VIP" : "FREE"} user`);
 
     if (!OPENROUTER_API_KEY) {
