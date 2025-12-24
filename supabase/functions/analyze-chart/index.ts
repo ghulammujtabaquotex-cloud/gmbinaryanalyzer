@@ -635,17 +635,18 @@ serve(async (req) => {
       );
     }
 
-    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
     console.log("Processing analysis request, remaining before:", remaining, "isVip:", isVip);
 
     const systemPrompt = isVip ? vipSystemPrompt : freeSystemPrompt;
     const analysisInstruction =
       "Analyze this trading chart using the advanced 6-step method: 1) Consider multi-timeframe context, 2) Count candles and identify trend structure with momentum analysis, 3) Mark confluence support/resistance zones, 4) Identify high-probability candlestick patterns, 5) Run your entry confirmation checklist, 6) Score your confidence (only signal if 7+). Your analysis must be HIGHLY ACCURATE and REPRODUCIBLE. Focus on what the chart SHOWS. Respond with JSON only.";
 
-    console.log(`Using Google Gemini API directly for ${isVip ? "VIP" : "FREE"} user`);
+    const model = "nvidia/nemotron-3-nano-30b-a3b:free";
+    console.log(`Using OpenRouter model: ${model} for ${isVip ? "VIP" : "FREE"} user`);
 
-    if (!GEMINI_API_KEY) {
-      console.error("ERR_CONFIG: GEMINI_API_KEY not configured");
+    if (!OPENROUTER_API_KEY) {
+      console.error("ERR_CONFIG: OPENROUTER_API_KEY not configured");
       return new Response(
         JSON.stringify({
           error:
@@ -663,69 +664,49 @@ serve(async (req) => {
     let contentText: string | undefined;
 
     try {
-      // Extract base64 data without the data URI prefix for Gemini API
-      const base64Match = imageBase64.match(/^data:image\/(\w+);base64,(.+)$/);
-      if (!base64Match) {
-        throw new Error("Invalid image format");
-      }
-      const mimeType = `image/${base64Match[1]}`;
-      const base64Data = base64Match[2];
-
-      // Call Google Gemini API directly
-      const geminiResponse = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
+      // Call OpenRouter API
+      const openRouterResponse = await fetch(
+        "https://openrouter.ai/api/v1/chat/completions",
         {
           method: "POST",
           signal: controller.signal,
           headers: {
             "Content-Type": "application/json",
+            "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+            "HTTP-Referer": "https://gmbinarypro.lovable.app",
+            "X-Title": "GM Binary Pro",
           },
           body: JSON.stringify({
-            contents: [
+            model,
+            temperature: 0.1,
+            max_tokens: 2048,
+            messages: [
+              { role: "system", content: systemPrompt },
               {
-                parts: [
-                  { text: `${systemPrompt}\n\n${analysisInstruction}` },
-                  {
-                    inline_data: {
-                      mime_type: mimeType,
-                      data: base64Data,
-                    },
-                  },
+                role: "user",
+                content: [
+                  { type: "text", text: analysisInstruction },
+                  { type: "image_url", image_url: { url: imageBase64 } },
                 ],
               },
             ],
-            generationConfig: {
-              temperature: 0.1,
-              maxOutputTokens: 2048,
-            },
           }),
         }
       );
 
       clearTimeout(timeoutId);
 
-      if (!geminiResponse.ok) {
-        const errText = await geminiResponse.text().catch(() => "");
-        console.error("Gemini API error:", geminiResponse.status, errText);
+      if (!openRouterResponse.ok) {
+        const errText = await openRouterResponse.text().catch(() => "");
+        console.error("OpenRouter API error:", openRouterResponse.status, errText);
 
         // Rate limiting / quota exceeded
-        if (geminiResponse.status === 429) {
-          // Try to parse retry delay from Google's error response
-          let retryAfterSeconds = 60;
-          try {
-            const errorJson = JSON.parse(errText);
-            const retryDelay = errorJson?.error?.details?.find((d: any) => d.retryDelay)?.retryDelay;
-            if (retryDelay) {
-              const seconds = parseInt(retryDelay.replace("s", ""), 10);
-              if (!isNaN(seconds)) retryAfterSeconds = seconds;
-            }
-          } catch {}
-
+        if (openRouterResponse.status === 429) {
           return new Response(
             JSON.stringify({
-              error: `⚠️ Analysis busy\n\nAPI quota/rate limit reached. Please wait ~${retryAfterSeconds} seconds and try again.`,
+              error: "⚠️ Analysis busy\n\nAPI rate limit reached. Please wait ~60 seconds and try again.",
               apiUnavailable: true,
-              retryAfterSeconds,
+              retryAfterSeconds: 60,
             }),
             { headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
@@ -741,13 +722,13 @@ serve(async (req) => {
         );
       }
 
-      const geminiData = await geminiResponse.json().catch(() => ({} as any));
-      contentText = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text;
+      const aiData = await openRouterResponse.json().catch(() => ({} as any));
+      contentText = aiData?.choices?.[0]?.message?.content;
 
-      console.log("Gemini API response received successfully");
+      console.log("OpenRouter API response received successfully");
     } catch (err) {
       clearTimeout(timeoutId);
-      console.error("Gemini API request error:", err);
+      console.error("OpenRouter API request error:", err);
       return new Response(
         JSON.stringify({
           error:
