@@ -664,7 +664,10 @@ serve(async (req) => {
     let contentText: string | undefined;
 
     try {
-      // Call OpenRouter API
+      // Call OpenRouter API - trim API key to remove any whitespace/newlines
+      const cleanApiKey = OPENROUTER_API_KEY.trim().replace(/[\r\n\t]/g, '');
+      console.log("API key length:", cleanApiKey.length, "First chars:", cleanApiKey.substring(0, 10));
+      
       const openRouterResponse = await fetch(
         "https://openrouter.ai/api/v1/chat/completions",
         {
@@ -672,7 +675,7 @@ serve(async (req) => {
           signal: controller.signal,
           headers: {
             "Content-Type": "application/json",
-            "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+            "Authorization": `Bearer ${cleanApiKey}`,
             "HTTP-Referer": "https://gmbinarypro.lovable.app",
             "X-Title": "GM Binary Pro",
           },
