@@ -13,6 +13,7 @@ const getAllowedOrigin = (requestOrigin: string | null): string => {
   const allowedPatterns = [
     /^https:\/\/[a-z0-9-]+\.lovableproject\.com$/,
     /^https:\/\/gmbinarypro\.lovable\.app$/,
+    /^https:\/\/id-preview--[a-z0-9-]+\.lovable\.app$/,
     /^https?:\/\/(localhost|127\.0\.0\.1)(:\d{1,5})?$/,
   ];
   
