@@ -664,8 +664,8 @@ serve(async (req) => {
     let contentText: string | undefined;
 
     try {
-      // Call OpenRouter API - trim API key to remove any whitespace/newlines
-      const cleanApiKey = OPENROUTER_API_KEY.trim().replace(/[\r\n\t]/g, '');
+      // Call OpenRouter API - remove ALL non-ASCII characters and whitespace from API key
+      const cleanApiKey = OPENROUTER_API_KEY.replace(/[^\x20-\x7E]/g, '').trim();
       console.log("API key length:", cleanApiKey.length, "First chars:", cleanApiKey.substring(0, 10));
       
       const openRouterResponse = await fetch(
