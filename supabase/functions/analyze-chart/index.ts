@@ -757,13 +757,28 @@ serve(async (req) => {
 
     const content = contentText;
 
-    // Parse the JSON response from AI - NO FALLBACK, fail if parse fails
+    // Parse the JSON response from AI (robust extraction)
     let analysis;
     try {
-      const cleanContent = content.replace(/```json\n?|\n?```/g, "").trim();
-      analysis = JSON.parse(cleanContent);
-    } catch {
-      console.error("ERR_PARSE: Failed to parse external AI response");
+      const stripped = content.replace(/```json\n?|\n?```/g, "").trim();
+
+      // First attempt: parse as-is
+      try {
+        analysis = JSON.parse(stripped);
+      } catch {
+        // Second attempt: extract the largest JSON object from the text
+        const firstBrace = stripped.indexOf("{");
+        const lastBrace = stripped.lastIndexOf("}");
+        if (firstBrace === -1 || lastBrace === -1 || lastBrace <= firstBrace) throw new Error("No JSON object found");
+
+        const maybeJson = stripped.slice(firstBrace, lastBrace + 1);
+        analysis = JSON.parse(maybeJson);
+      }
+    } catch (e) {
+      console.error("ERR_PARSE: Failed to parse external AI response", {
+        message: e instanceof Error ? e.message : String(e),
+        preview: content.slice(0, 300),
+      });
       return new Response(
         JSON.stringify({
           error:
