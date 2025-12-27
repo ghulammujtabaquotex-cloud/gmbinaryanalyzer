@@ -682,7 +682,6 @@ serve(async (req) => {
           },
           body: JSON.stringify({
             model,
-            temperature: 0.1,
             max_tokens: 2048,
             messages: [
               { role: "system", content: systemPrompt },
@@ -700,31 +699,39 @@ serve(async (req) => {
 
       clearTimeout(timeoutId);
 
-      if (!openRouterResponse.ok) {
-        const errText = await openRouterResponse.text().catch(() => "");
-        console.error("OpenRouter API error:", openRouterResponse.status, errText);
+       if (!openRouterResponse.ok) {
+         const errText = await openRouterResponse.text().catch(() => "");
+         console.error("OpenRouter API error:", openRouterResponse.status, errText);
 
-        // Rate limiting / quota exceeded
-        if (openRouterResponse.status === 429) {
-          return new Response(
-            JSON.stringify({
-              error: "⚠️ Analysis busy\n\nAPI rate limit reached. Please wait ~60 seconds and try again.",
-              apiUnavailable: true,
-              retryAfterSeconds: 60,
-            }),
-            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
-        }
+         // Rate limiting / quota exceeded
+         if (openRouterResponse.status === 429) {
+           return new Response(
+             JSON.stringify({
+               error: "⚠️ Analysis busy\n\nAPI rate limit reached. Please wait ~60 seconds and try again.",
+               apiUnavailable: true,
+               retryAfterSeconds: 60,
+             }),
+             {
+               status: 429,
+               headers: { ...corsHeaders, "Content-Type": "application/json" },
+             }
+           );
+         }
 
-        return new Response(
-          JSON.stringify({
-            error:
-              "⚠️ Analysis unavailable\n\nAI is temporarily unavailable.\n\nNo signal generated to avoid random trades.",
-            apiUnavailable: true,
-          }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
+         return new Response(
+           JSON.stringify({
+             error:
+               "⚠️ Analysis unavailable\n\nAI request rejected.\n\n" +
+               (errText ? errText.slice(0, 800) : "Please try again."),
+             apiUnavailable: true,
+             upstreamStatus: openRouterResponse.status,
+           }),
+           {
+             status: openRouterResponse.status,
+             headers: { ...corsHeaders, "Content-Type": "application/json" },
+           }
+         );
+       }
 
       const aiData = await openRouterResponse.json().catch(() => ({} as any));
       contentText = aiData?.choices?.[0]?.message?.content;
