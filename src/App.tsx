@@ -11,6 +11,7 @@ const Auth = lazy(() => import("./pages/Auth"));
 const Results = lazy(() => import("./pages/Results"));
 const Pricing = lazy(() => import("./pages/Pricing"));
 const Admin = lazy(() => import("./pages/Admin"));
+const FutureSignals = lazy(() => import("./pages/FutureSignals"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
@@ -28,6 +29,7 @@ const App = () => (
             <Route path="/results" element={<Results />} />
             <Route path="/pricing" element={<Pricing />} />
             <Route path="/admin" element={<Admin />} />
+            <Route path="/future-signals" element={<FutureSignals />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
