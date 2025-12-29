@@ -648,9 +648,50 @@ serve(async (req) => {
     const timeoutId = setTimeout(() => controller.abort(), 55000);
 
     let contentText: string | undefined;
+    let usedProvider = "OpenRouter";
+
+    // Helper to call Lovable AI as fallback
+    const callLovableAI = async (): Promise<string | undefined> => {
+      const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+      if (!LOVABLE_API_KEY) {
+        console.log("LOVABLE_API_KEY not available for fallback");
+        return undefined;
+      }
+      console.log("Trying Lovable AI fallback...");
+      const lovableResponse = await fetch(
+        "https://ai.gateway.lovable.dev/v1/chat/completions",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${LOVABLE_API_KEY}`,
+          },
+          body: JSON.stringify({
+            model: "google/gemini-2.5-flash",
+            messages: [
+              { role: "system", content: systemPrompt },
+              {
+                role: "user",
+                content: [
+                  { type: "text", text: analysisInstruction },
+                  { type: "image_url", image_url: { url: imageBase64 } },
+                ],
+              },
+            ],
+          }),
+        }
+      );
+      if (!lovableResponse.ok) {
+        const errText = await lovableResponse.text().catch(() => "");
+        console.error("Lovable AI fallback error:", lovableResponse.status, errText);
+        return undefined;
+      }
+      const aiData = await lovableResponse.json().catch(() => ({} as any));
+      return aiData?.choices?.[0]?.message?.content;
+    };
 
     try {
-      // Call OpenRouter API
+      // Call OpenRouter API first
       const cleanApiKey = OPENROUTER_API_KEY.replace(/[^\x20-\x7E]/g, '').trim();
       console.log("Calling OpenRouter API, key length:", cleanApiKey.length);
       
@@ -667,8 +708,7 @@ serve(async (req) => {
           },
           body: JSON.stringify({
             model,
-            // Keep low to avoid OpenRouter 402 "can only afford X" errors
-            max_tokens: 384,
+            max_tokens: 512,
             messages: [
               { role: "system", content: systemPrompt },
               {
@@ -689,68 +729,72 @@ serve(async (req) => {
         const errText = await openRouterResponse.text().catch(() => "");
         console.error("OpenRouter API error:", openRouterResponse.status, errText);
 
-        // Rate limiting
-        if (openRouterResponse.status === 429) {
-          return new Response(
-            JSON.stringify({
-              error: "⚠️ Analysis busy\n\nAPI rate limit reached. Please wait ~60 seconds and try again.",
-              apiUnavailable: true,
-              retryAfterSeconds: 60,
-            }),
-            {
-              status: 429,
-              headers: { ...corsHeaders, "Content-Type": "application/json" },
-            }
-          );
-        }
-
-        // Payment/credit error
-        if (openRouterResponse.status === 402) {
+        // Try Lovable AI fallback for 429 or 402 errors
+        if (openRouterResponse.status === 429 || openRouterResponse.status === 402) {
+          console.log("OpenRouter failed with", openRouterResponse.status, "- trying Lovable AI fallback");
+          const fallbackContent = await callLovableAI();
+          if (fallbackContent) {
+            contentText = fallbackContent;
+            usedProvider = "Lovable AI (fallback)";
+          } else {
+            // Both failed
+            const errorMsg = openRouterResponse.status === 429
+              ? "⚠️ Analysis busy\n\nBoth AI providers are rate-limited. Please wait ~60 seconds and try again."
+              : "⚠️ Analysis unavailable\n\nBoth AI providers require credits. Please try again later.";
+            return new Response(
+              JSON.stringify({
+                error: errorMsg,
+                apiUnavailable: true,
+                retryAfterSeconds: 60,
+              }),
+              {
+                status: openRouterResponse.status,
+                headers: { ...corsHeaders, "Content-Type": "application/json" },
+              }
+            );
+          }
+        } else {
           return new Response(
             JSON.stringify({
               error:
-                "⚠️ Analysis unavailable\n\nOpenRouter rejected the request (402).\n\n" +
-                (errText ? errText.slice(0, 800) : "Please check your OpenRouter credits/settings."),
+                "⚠️ Analysis unavailable\n\nAI request failed.\n\nPlease try again.",
               apiUnavailable: true,
-              upstreamStatus: 402,
+              upstreamStatus: openRouterResponse.status,
             }),
             {
-              status: 402,
+              status: openRouterResponse.status,
               headers: { ...corsHeaders, "Content-Type": "application/json" },
             }
           );
         }
-
-        return new Response(
-          JSON.stringify({
-            error:
-              "⚠️ Analysis unavailable\n\nAI request failed.\n\nPlease try again.",
-            apiUnavailable: true,
-            upstreamStatus: openRouterResponse.status,
-          }),
-          {
-            status: openRouterResponse.status,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          }
-        );
+      } else {
+        const aiData = await openRouterResponse.json().catch(() => ({} as any));
+        contentText = aiData?.choices?.[0]?.message?.content;
+        console.log("OpenRouter API response received successfully");
       }
-
-      const aiData = await openRouterResponse.json().catch(() => ({} as any));
-      contentText = aiData?.choices?.[0]?.message?.content;
-
-      console.log("OpenRouter API response received successfully");
     } catch (err) {
       clearTimeout(timeoutId);
       console.error("OpenRouter API request error:", err);
-      return new Response(
-        JSON.stringify({
-          error:
-            "⚠️ Analysis unavailable\n\nAI is temporarily unavailable.\n\nNo signal generated to avoid random trades.",
-          apiUnavailable: true,
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+
+      // Try Lovable AI fallback on network/timeout errors
+      console.log("OpenRouter failed with error - trying Lovable AI fallback");
+      const fallbackContent = await callLovableAI();
+      if (fallbackContent) {
+        contentText = fallbackContent;
+        usedProvider = "Lovable AI (fallback)";
+      } else {
+        return new Response(
+          JSON.stringify({
+            error:
+              "⚠️ Analysis unavailable\n\nAI is temporarily unavailable.\n\nPlease try again in a moment.",
+            apiUnavailable: true,
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
     }
+
+    console.log("Analysis completed using:", usedProvider);
 
     if (!contentText) {
       console.error("ERR_EMPTY_RESPONSE: AI returned no content");
