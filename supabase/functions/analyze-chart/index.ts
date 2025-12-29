@@ -620,19 +620,19 @@ serve(async (req) => {
       );
     }
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
     console.log("Processing analysis request, remaining before:", remaining, "isVip:", isVip);
 
     const systemPrompt = isVip ? vipSystemPrompt : freeSystemPrompt;
     const analysisInstruction =
       "Analyze this trading chart using the advanced 6-step method: 1) Consider multi-timeframe context, 2) Count candles and identify trend structure with momentum analysis, 3) Mark confluence support/resistance zones, 4) Identify high-probability candlestick patterns, 5) Run your entry confirmation checklist, 6) Score your confidence (only signal if 7+). Your analysis must be HIGHLY ACCURATE and REPRODUCIBLE. Focus on what the chart SHOWS. Respond with JSON only.";
 
-    // Use Lovable AI Gateway with gemini-2.5-flash (free, no credits needed)
-    const model = "google/gemini-2.5-flash";
-    console.log(`Using Lovable AI model: ${model} for ${isVip ? "VIP" : "FREE"} user`);
+    // Use OpenRouter with gemini-2.0-flash-001
+    const model = "google/gemini-2.0-flash-001";
+    console.log(`Using OpenRouter model: ${model} for ${isVip ? "VIP" : "FREE"} user`);
 
-    if (!LOVABLE_API_KEY) {
-      console.error("ERR_CONFIG: LOVABLE_API_KEY not configured");
+    if (!OPENROUTER_API_KEY) {
+      console.error("ERR_CONFIG: OPENROUTER_API_KEY not configured");
       return new Response(
         JSON.stringify({
           error:
@@ -650,20 +650,24 @@ serve(async (req) => {
     let contentText: string | undefined;
 
     try {
-      // Call Lovable AI Gateway (compatible with OpenAI API)
-      console.log("Calling Lovable AI Gateway...");
+      // Call OpenRouter API
+      const cleanApiKey = OPENROUTER_API_KEY.replace(/[^\x20-\x7E]/g, '').trim();
+      console.log("Calling OpenRouter API, key length:", cleanApiKey.length);
       
-      const lovableResponse = await fetch(
-        "https://ai.gateway.lovable.dev/v1/chat/completions",
+      const openRouterResponse = await fetch(
+        "https://openrouter.ai/api/v1/chat/completions",
         {
           method: "POST",
           signal: controller.signal,
           headers: {
             "Content-Type": "application/json",
-            "Authorization": `Bearer ${LOVABLE_API_KEY}`,
+            "Authorization": `Bearer ${cleanApiKey}`,
+            "HTTP-Referer": "https://gmbinarypro.lovable.app",
+            "X-Title": "GM Binary Pro",
           },
           body: JSON.stringify({
             model,
+            max_tokens: 2048,
             messages: [
               { role: "system", content: systemPrompt },
               {
@@ -680,12 +684,12 @@ serve(async (req) => {
 
       clearTimeout(timeoutId);
 
-      if (!lovableResponse.ok) {
-        const errText = await lovableResponse.text().catch(() => "");
-        console.error("Lovable AI error:", lovableResponse.status, errText);
+      if (!openRouterResponse.ok) {
+        const errText = await openRouterResponse.text().catch(() => "");
+        console.error("OpenRouter API error:", openRouterResponse.status, errText);
 
         // Rate limiting
-        if (lovableResponse.status === 429) {
+        if (openRouterResponse.status === 429) {
           return new Response(
             JSON.stringify({
               error: "⚠️ Analysis busy\n\nAPI rate limit reached. Please wait ~60 seconds and try again.",
@@ -699,11 +703,11 @@ serve(async (req) => {
           );
         }
 
-        // Payment required (should not happen with Lovable AI but handle gracefully)
-        if (lovableResponse.status === 402) {
+        // Payment/credit error
+        if (openRouterResponse.status === 402) {
           return new Response(
             JSON.stringify({
-              error: "⚠️ Analysis unavailable\n\nAI credits exhausted. Please try again later.",
+              error: "⚠️ Analysis unavailable\n\nAI credits issue. Please check your OpenRouter account.",
               apiUnavailable: true,
             }),
             {
@@ -718,22 +722,22 @@ serve(async (req) => {
             error:
               "⚠️ Analysis unavailable\n\nAI request failed.\n\nPlease try again.",
             apiUnavailable: true,
-            upstreamStatus: lovableResponse.status,
+            upstreamStatus: openRouterResponse.status,
           }),
           {
-            status: lovableResponse.status,
+            status: openRouterResponse.status,
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           }
         );
       }
 
-      const aiData = await lovableResponse.json().catch(() => ({} as any));
+      const aiData = await openRouterResponse.json().catch(() => ({} as any));
       contentText = aiData?.choices?.[0]?.message?.content;
 
-      console.log("Lovable AI response received successfully");
+      console.log("OpenRouter API response received successfully");
     } catch (err) {
       clearTimeout(timeoutId);
-      console.error("Lovable AI request error:", err);
+      console.error("OpenRouter API request error:", err);
       return new Response(
         JSON.stringify({
           error:
