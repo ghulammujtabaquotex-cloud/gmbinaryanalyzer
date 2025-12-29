@@ -667,7 +667,8 @@ serve(async (req) => {
           },
           body: JSON.stringify({
             model,
-            max_tokens: 2048,
+            // Keep low to avoid OpenRouter 402 "can only afford X" errors
+            max_tokens: 384,
             messages: [
               { role: "system", content: systemPrompt },
               {
@@ -707,8 +708,11 @@ serve(async (req) => {
         if (openRouterResponse.status === 402) {
           return new Response(
             JSON.stringify({
-              error: "⚠️ Analysis unavailable\n\nAI credits issue. Please check your OpenRouter account.",
+              error:
+                "⚠️ Analysis unavailable\n\nOpenRouter rejected the request (402).\n\n" +
+                (errText ? errText.slice(0, 800) : "Please check your OpenRouter credits/settings."),
               apiUnavailable: true,
+              upstreamStatus: 402,
             }),
             {
               status: 402,
