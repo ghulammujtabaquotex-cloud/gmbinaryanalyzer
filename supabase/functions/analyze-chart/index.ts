@@ -4,29 +4,14 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const FREE_DAILY_LIMIT = 10;
 const VIP_DAILY_LIMIT = 20;
 
-// CORS configuration with strict regex validation to prevent subdomain bypass attacks
-const getAllowedOrigin = (requestOrigin: string | null): string => {
-  if (!requestOrigin) {
-    return "https://rbqafiykevtbgztczizr.lovableproject.com";
-  }
-  
-  // Strict regex patterns - prevents bypass via subdomains like localhost.evil.com
-  const allowedPatterns = [
-    /^https:\/\/[a-z0-9-]+\.lovableproject\.com$/,
-    /^https:\/\/gmbinarypro\.lovable\.app$/,
-    /^https:\/\/id-preview--[a-z0-9-]+\.lovable\.app$/,
-    /^https?:\/\/(localhost|127\.0\.0\.1)(:\d{1,5})?$/, // Dev only with optional port
-  ];
-  
-  for (const pattern of allowedPatterns) {
-    if (pattern.test(requestOrigin)) {
-      return requestOrigin;
-    }
-  }
-  
-  // Reject unknown origins - return default
-  return "https://rbqafiykevtbgztczizr.lovableproject.com";
+
+// CORS configuration
+// Keep permissive to avoid "failed to send request" issues from preview/custom domains.
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
 
 // Same high-quality analysis for all users - VIP benefits are more daily analyses, history, stats
 const freeSystemPrompt = `You are an ELITE binary options price action analyst with 15+ years experience. Your analysis must be CONSISTENT, RELIABLE, and produce SURESHOT TRADES with 70%+ accuracy.
@@ -575,11 +560,10 @@ const incrementIPUsage = async (
 };
 
 serve(async (req) => {
-  const origin = req.headers.get("origin");
-  const corsHeaders = {
-    "Access-Control-Allow-Origin": getAllowedOrigin(origin),
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  };
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
 
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
