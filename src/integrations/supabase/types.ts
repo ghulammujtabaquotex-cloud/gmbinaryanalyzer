@@ -41,9 +41,37 @@ export type Database = {
         }
         Relationships: []
       }
+      future_signals_pool: {
+        Row: {
+          confidence: number | null
+          created_at: string
+          direction: string
+          id: string
+          pair: string
+          signal_time: string
+        }
+        Insert: {
+          confidence?: number | null
+          created_at?: string
+          direction: string
+          id?: string
+          pair: string
+          signal_time: string
+        }
+        Update: {
+          confidence?: number | null
+          created_at?: string
+          direction?: string
+          id?: string
+          pair?: string
+          signal_time?: string
+        }
+        Relationships: []
+      }
       ip_usage: {
         Row: {
           created_at: string
+          future_signal_count: number | null
           id: string
           ip_address: string
           request_count: number
@@ -52,6 +80,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          future_signal_count?: number | null
           id?: string
           ip_address: string
           request_count?: number
@@ -60,6 +89,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          future_signal_count?: number | null
           id?: string
           ip_address?: string
           request_count?: number
@@ -179,6 +209,36 @@ export type Database = {
           support_zone?: string | null
           trend?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      signals_history: {
+        Row: {
+          created_at: string
+          direction: string
+          id: string
+          ip_address: string | null
+          pair: string
+          signal_time: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          direction: string
+          id?: string
+          ip_address?: string | null
+          pair: string
+          signal_time: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          direction?: string
+          id?: string
+          ip_address?: string | null
+          pair?: string
+          signal_time?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -316,6 +376,18 @@ export type Database = {
         }[]
       }
       check_email_is_vip: { Args: { p_email: string }; Returns: boolean }
+      check_future_signal_usage: {
+        Args: {
+          p_daily_limit: number
+          p_ip_address: string
+          p_usage_date: string
+        }
+        Returns: {
+          allowed: boolean
+          current_count: number
+          remaining: number
+        }[]
+      }
       check_ip_usage: {
         Args: {
           p_daily_limit: number
@@ -343,6 +415,7 @@ export type Database = {
         }[]
       }
       get_total_analysis_count: { Args: never; Returns: number }
+      get_total_signals_generated: { Args: never; Returns: number }
       get_trade_statistics: {
         Args: never
         Returns: {
@@ -372,6 +445,10 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      increment_future_signal_usage: {
+        Args: { p_ip_address: string; p_usage_date: string }
+        Returns: undefined
       }
       is_vip: { Args: { _user_id: string }; Returns: boolean }
     }

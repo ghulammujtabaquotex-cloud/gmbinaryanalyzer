@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Check, X, Loader2, Crown, Clock, Eye, RefreshCw, Copy, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Check, X, Loader2, Crown, Clock, Eye, RefreshCw, Copy, CheckCircle, Zap, CreditCard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useAdmin } from '@/hooks/useAdmin';
@@ -18,6 +19,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
+import AdminFutureSignals from '@/components/AdminFutureSignals';
 
 interface PaymentRequest {
   id: string;
@@ -286,8 +288,21 @@ const Admin = () => {
       </header>
 
       <main className="container mx-auto px-4 py-8">
-        {/* Stats */}
-        <div className="grid grid-cols-3 gap-4 mb-8">
+        <Tabs defaultValue="payments" className="space-y-6">
+          <TabsList className="grid w-full max-w-md grid-cols-2">
+            <TabsTrigger value="payments" className="flex items-center gap-2">
+              <CreditCard className="w-4 h-4" />
+              Payments
+            </TabsTrigger>
+            <TabsTrigger value="signals" className="flex items-center gap-2">
+              <Zap className="w-4 h-4" />
+              Future Signals
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="payments" className="space-y-8">
+            {/* Stats */}
+            <div className="grid grid-cols-3 gap-4">
           <Card className="glass-card">
             <CardContent className="p-4 text-center">
               <div className="text-2xl font-bold text-warning">{pendingPayments.length}</div>
@@ -457,6 +472,16 @@ const Admin = () => {
             )}
           </CardContent>
         </Card>
+          </TabsContent>
+
+          <TabsContent value="signals">
+            <Card className="glass-card">
+              <CardContent className="p-6">
+                <AdminFutureSignals />
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </main>
 
       {/* Image Viewer Dialog */}

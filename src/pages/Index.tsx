@@ -228,6 +228,17 @@ const Index = () => {
               </div>
             </div>
             <div className="flex items-center gap-2 sm:gap-3">
+              {/* Future Signals Link */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate("/future-signals")}
+                className="border-emerald-500/50 text-emerald-500 hover:bg-emerald-500/10"
+              >
+                <Zap className="w-4 h-4 mr-1 sm:mr-2" />
+                <span className="hidden sm:inline">Future Signals</span>
+              </Button>
+
               {/* Admin Panel Link */}
               {isAdmin && (
                 <Button
