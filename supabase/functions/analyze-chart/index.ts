@@ -757,7 +757,7 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({
           error:
-            "⚠️ Analysis unavailable\n\nAI returned an empty response.\n\nNo signal generated to avoid random trades.",
+            "⚠️ Analysis unavailable\n\nAI returned an empty response.\n\nPlease upload a clear trading chart screenshot and try again.",
           apiUnavailable: true,
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -784,14 +784,21 @@ serve(async (req) => {
         analysis = JSON.parse(maybeJson);
       }
     } catch (e) {
+      const preview = content.slice(0, 300);
       console.error("ERR_PARSE: Failed to parse external AI response", {
         message: e instanceof Error ? e.message : String(e),
-        preview: content.slice(0, 300),
+        preview,
       });
+
+      // Friendly hint for common failure: user uploaded a non-chart image or unclear screenshot
+      const looksLikeRefusal = /cannot analyze|can't analyze|food|not.*chart/i.test(preview);
+      const helpText = looksLikeRefusal
+        ? "Please upload a clear trading chart screenshot (candles + pair name) and try again."
+        : "Please try again with a clearer chart screenshot.";
+
       return new Response(
         JSON.stringify({
-          error:
-            "⚠️ Analysis unavailable\n\nAI returned invalid response.\n\nNo signal generated to avoid random trades.",
+          error: `⚠️ Analysis unavailable\n\nAI returned an invalid format (not JSON).\n\n${helpText}`,
           apiUnavailable: true,
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
