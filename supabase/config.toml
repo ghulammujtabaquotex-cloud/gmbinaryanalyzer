@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.check-usage]
 verify_jwt = false
+
+[functions.telegram-test]
+verify_jwt = false

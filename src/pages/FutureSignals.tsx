@@ -30,7 +30,9 @@ const FutureSignals = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [globalCount, setGlobalCount] = useState(0);
   const [copied, setCopied] = useState(false);
-  const [usageInfo, setUsageInfo] = useState({ used: 0, limit: 3, isVip: false });
+const [usageInfo, setUsageInfo] = useState({ used: 0, limit: 3, isVip: false });
+  const FREE_SIGNAL_LIMIT = 3;
+  const VIP_SIGNAL_LIMIT = 10;
   const terminalRef = useRef<HTMLDivElement>(null);
 
   // Get Pakistan time
@@ -118,7 +120,7 @@ const FutureSignals = () => {
       if (roleData) isVip = true;
     }
 
-    const limit = isVip ? 10 : 3;
+    const limit = isVip ? VIP_SIGNAL_LIMIT : FREE_SIGNAL_LIMIT;
 
     const { data } = await supabase.rpc('check_future_signal_usage', {
       p_ip_address: ip,
@@ -208,7 +210,7 @@ const FutureSignals = () => {
 
       if (validSignals.length === 0) {
         addLog('');
-        addLog('>> SYSTEM ALERT: No signal found in the next 2 hours.');
+        addLog('>> SYSTEM ALERT: No signal found.');
         addLog('>> Please check back later or contact admin.');
       } else {
         addLog('');
@@ -277,14 +279,14 @@ const FutureSignals = () => {
           className="text-[#33ff33] hover:bg-[#33ff33]/10"
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
-          Back
+          Dashboard
         </Button>
 
         <div className="flex items-center gap-4">
           {/* Global Counter */}
           <div className="flex items-center gap-2 bg-[#1a1a1a] border border-[#33ff33]/30 rounded-full px-4 py-2">
             <Globe className="h-4 w-4 text-cyan-400" />
-            <span className="text-cyan-400 text-sm">Global Requests:</span>
+            <span className="text-cyan-400 text-sm">Global:</span>
             <span className="text-white font-bold">{globalCount.toLocaleString()}</span>
           </div>
 
@@ -306,7 +308,7 @@ const FutureSignals = () => {
           <Zap className="h-8 w-8" />
         </h1>
         <p className="text-gray-500 text-sm">
-          Timezone: Asia/Karachi (UTC+5) | Window: Next 2 Hours
+          Timezone: Asia/Karachi (UTC+5)
         </p>
       </div>
 
@@ -326,11 +328,10 @@ const FutureSignals = () => {
             ref={terminalRef}
             className="p-4 h-[400px] overflow-y-auto text-sm leading-relaxed"
           >
-            {logs.length === 0 && !isGenerating && (
+          {logs.length === 0 && !isGenerating && (
               <div className="text-gray-500">
                 <p>{'>'} Welcome to GM Binary Pro Signal Generator</p>
                 <p>{'>'} Click "Generate Signals" to fetch upcoming trading signals</p>
-                <p>{'>'} Signals are filtered for the next 2 hours (Pakistan Time)</p>
                 <p className="mt-4 text-cyan-400">{'>'} Ready...</p>
               </div>
             )}

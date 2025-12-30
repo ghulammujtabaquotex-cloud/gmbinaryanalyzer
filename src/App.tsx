@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 
 // Lazy load pages for code splitting
+const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Index = lazy(() => import("./pages/Index"));
 const Auth = lazy(() => import("./pages/Auth"));
 const Results = lazy(() => import("./pages/Results"));
@@ -24,7 +25,8 @@ const App = () => (
       <BrowserRouter>
         <Suspense fallback={<div className="min-h-screen bg-background" />}>
           <Routes>
-            <Route path="/" element={<Index />} />
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/chart-analyzer" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/results" element={<Results />} />
             <Route path="/pricing" element={<Pricing />} />
