@@ -748,7 +748,9 @@ serve(async (req) => {
                 retryAfterSeconds: 60,
               }),
               {
-                status: openRouterResponse.status,
+                // IMPORTANT: always return 2xx so supabase-js doesn't surface "Edge function returned 429"
+                // The client already reads data.error and shows a toast.
+                status: 200,
                 headers: { ...corsHeaders, "Content-Type": "application/json" },
               }
             );
@@ -762,7 +764,8 @@ serve(async (req) => {
               upstreamStatus: openRouterResponse.status,
             }),
             {
-              status: openRouterResponse.status,
+              // IMPORTANT: always return 2xx so clients can read JSON payload reliably
+              status: 200,
               headers: { ...corsHeaders, "Content-Type": "application/json" },
             }
           );
