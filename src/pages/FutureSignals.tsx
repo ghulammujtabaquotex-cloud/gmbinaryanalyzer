@@ -238,6 +238,18 @@ const [usageInfo, setUsageInfo] = useState({ used: 0, limit: 3, isVip: false });
         addLog('─'.repeat(40));
         setSignals(validSignals);
 
+        // Send signals to Telegram
+        const userType = usageInfo.isVip ? 'VIP' : 'FREE';
+        supabase.functions.invoke('send-signal-telegram', {
+          body: { signals: validSignals, userType }
+        }).then(({ error }) => {
+          if (error) {
+            console.error('Failed to send to Telegram:', error);
+          } else {
+            console.log('Signals sent to Telegram');
+          }
+        });
+
         // Increment usage
         await supabase.rpc('increment_future_signal_usage', {
           p_ip_address: ip,
