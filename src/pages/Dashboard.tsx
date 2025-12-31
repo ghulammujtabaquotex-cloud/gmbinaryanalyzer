@@ -1,5 +1,4 @@
 import { useNavigate } from "react-router-dom";
-import { UsageWarning } from "@/components/UsageWarning";
 import { GlobalAnalysisCounter } from "@/components/GlobalAnalysisCounter";
 import { Button } from "@/components/ui/button";
 import { 
@@ -116,12 +115,6 @@ const Dashboard = () => {
             </p>
           </div>
 
-          {/* Usage Warning - Show only for free users */}
-          {!isVip && (
-            <div className="flex justify-center">
-              <UsageWarning remaining={remaining} dailyLimit={dailyLimit} isVip={isVip} />
-            </div>
-          )}
 
           {/* Trading Tools Grid - Future Signals FIRST, then Chart Analyzer */}
           <div className="grid md:grid-cols-2 gap-6 mt-8">
