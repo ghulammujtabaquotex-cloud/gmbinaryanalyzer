@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { UsageWarning } from "@/components/UsageWarning";
 import { GlobalAnalysisCounter } from "@/components/GlobalAnalysisCounter";
@@ -9,15 +8,11 @@ import {
   Trophy, 
   Crown, 
   Settings, 
-  Lock,
-  Send,
-  CheckCircle,
-  Loader2
+  Lock
 } from "lucide-react";
 import { useIPUsageTracking } from "@/hooks/useIPUsageTracking";
 import { useAuth } from "@/hooks/useAuth";
 import { useAdmin } from "@/hooks/useAdmin";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 const Dashboard = () => {
@@ -25,32 +20,7 @@ const Dashboard = () => {
   const { remaining, dailyLimit, isLoading: usageLoading, isVip } = useIPUsageTracking();
   const { user } = useAuth();
   const { isAdmin } = useAdmin();
-  const [isTesting, setIsTesting] = useState(false);
-  const [testSuccess, setTestSuccess] = useState(false);
 
-  const handleTelegramTest = async () => {
-    setIsTesting(true);
-    setTestSuccess(false);
-    
-    try {
-      const { data, error } = await supabase.functions.invoke("telegram-test");
-      
-      if (error) throw error;
-      
-      if (data?.success) {
-        setTestSuccess(true);
-        toast.success("Telegram test message sent successfully!");
-        setTimeout(() => setTestSuccess(false), 3000);
-      } else {
-        throw new Error(data?.error || "Failed to send test message");
-      }
-    } catch (err) {
-      console.error("Telegram test error:", err);
-      toast.error("Failed to send Telegram test message");
-    } finally {
-      setIsTesting(false);
-    }
-  };
 
   if (usageLoading) {
     return (
@@ -146,44 +116,16 @@ const Dashboard = () => {
             </p>
           </div>
 
-          {/* Usage Warning - Show for all users */}
-          <div className="flex justify-center">
-            <UsageWarning remaining={remaining} dailyLimit={dailyLimit} isVip={isVip} />
-          </div>
-
-          {/* Trading Tools Grid */}
-          <div className="grid md:grid-cols-2 gap-6 mt-8">
-            {/* Chart Analyzer Card - LOCKED */}
-            <div className="relative rounded-2xl border border-border/50 bg-card/50 backdrop-blur-sm p-6 overflow-hidden">
-              {/* Lock Overlay */}
-              <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-10 flex flex-col items-center justify-center">
-                <Lock className="w-16 h-16 text-muted-foreground/50 mb-4" />
-                <span className="text-xl font-bold text-muted-foreground">UNDER MAINTENANCE</span>
-                <span className="text-sm text-muted-foreground/70 mt-2">Coming back soon</span>
-              </div>
-              
-              {/* Card Content (blurred behind) */}
-              <div className="space-y-4 opacity-30">
-                <div className="flex items-center gap-3">
-                  <div className="p-3 rounded-xl bg-primary/10">
-                    <BarChart3 className="w-8 h-8 text-primary" />
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-bold text-foreground">Chart Analyzer</h3>
-                    <p className="text-sm text-muted-foreground">AI-powered analysis</p>
-                  </div>
-                </div>
-                <p className="text-muted-foreground">
-                  Upload your trading chart and get instant AI analysis with support, resistance, and next candle prediction.
-                </p>
-                <Button disabled className="w-full">
-                  <BarChart3 className="w-4 h-4 mr-2" />
-                  Analyze Chart
-                </Button>
-              </div>
+          {/* Usage Warning - Show only for free users */}
+          {!isVip && (
+            <div className="flex justify-center">
+              <UsageWarning remaining={remaining} dailyLimit={dailyLimit} isVip={isVip} />
             </div>
+          )}
 
-            {/* Future Signals Card - ACTIVE */}
+          {/* Trading Tools Grid - Future Signals FIRST, then Chart Analyzer */}
+          <div className="grid md:grid-cols-2 gap-6 mt-8">
+            {/* Future Signals Card - ACTIVE (First) */}
             <div 
               onClick={() => navigate("/future-signals")}
               className="rounded-2xl border border-emerald-500/30 bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 backdrop-blur-sm p-6 cursor-pointer hover:border-emerald-500/50 hover:shadow-[0_0_30px_-10px_rgba(16,185,129,0.4)] transition-all duration-300"
@@ -207,36 +149,33 @@ const Dashboard = () => {
                 </Button>
               </div>
             </div>
-          </div>
 
-          {/* Telegram Test Button (Admin Only - for testing) */}
-          {isAdmin && (
-            <div className="flex justify-center mt-8">
-              <Button
-                onClick={handleTelegramTest}
-                disabled={isTesting}
-                variant="outline"
-                className="border-cyan-500/50 text-cyan-500 hover:bg-cyan-500/10"
-              >
-                {isTesting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Sending...
-                  </>
-                ) : testSuccess ? (
-                  <>
-                    <CheckCircle className="w-4 h-4 mr-2" />
-                    Test Sent!
-                  </>
-                ) : (
-                  <>
-                    <Send className="w-4 h-4 mr-2" />
-                    Test Telegram
-                  </>
-                )}
-              </Button>
+            {/* Chart Analyzer Card - Shows lock on click (Second) */}
+            <div 
+              onClick={() => toast.error("UNDER MAINTENANCE - Coming back soon")}
+              className="rounded-2xl border border-border/50 bg-card/50 backdrop-blur-sm p-6 cursor-pointer hover:border-primary/30 transition-all duration-300"
+            >
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-3 rounded-xl bg-primary/10 relative">
+                    <BarChart3 className="w-8 h-8 text-primary" />
+                    <Lock className="w-4 h-4 text-muted-foreground absolute -bottom-1 -right-1" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-foreground">Chart Analyzer</h3>
+                    <p className="text-sm text-muted-foreground">AI-powered analysis</p>
+                  </div>
+                </div>
+                <p className="text-muted-foreground">
+                  Upload your trading chart and get instant AI analysis with support, resistance, and next candle prediction.
+                </p>
+                <Button variant="outline" className="w-full">
+                  <BarChart3 className="w-4 h-4 mr-2" />
+                  Analyze Chart
+                </Button>
+              </div>
             </div>
-          )}
+          </div>
         </div>
       </main>
 

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Check, X, Loader2, Crown, Clock, Eye, RefreshCw, Copy, CheckCircle, Zap, CreditCard } from 'lucide-react';
+import { ArrowLeft, Check, X, Loader2, Crown, Clock, Eye, RefreshCw, Copy, CheckCircle, Zap, CreditCard, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -50,6 +50,7 @@ const Admin = () => {
   const [approvalEmail, setApprovalEmail] = useState('');
   const [createdCredentials, setCreatedCredentials] = useState<CreatedCredentials | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [isTelegramTesting, setIsTelegramTesting] = useState(false);
 
   const fetchPayments = async () => {
     setIsLoading(true);
@@ -206,6 +207,24 @@ const Admin = () => {
     return new Date(date).toLocaleString();
   };
 
+  const handleTelegramTest = async () => {
+    setIsTelegramTesting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("telegram-test");
+      if (error) throw error;
+      if (data?.success) {
+        toast.success("Telegram test message sent successfully!");
+      } else {
+        throw new Error(data?.error || "Failed to send test message");
+      }
+    } catch (err) {
+      console.error("Telegram test error:", err);
+      toast.error("Failed to send Telegram test message");
+    } finally {
+      setIsTelegramTesting(false);
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'pending':
@@ -289,16 +308,39 @@ const Admin = () => {
 
       <main className="container mx-auto px-4 py-8">
         <Tabs defaultValue="payments" className="space-y-6">
-          <TabsList className="grid w-full max-w-md grid-cols-2">
-            <TabsTrigger value="payments" className="flex items-center gap-2">
-              <CreditCard className="w-4 h-4" />
-              Payments
-            </TabsTrigger>
-            <TabsTrigger value="signals" className="flex items-center gap-2">
-              <Zap className="w-4 h-4" />
-              Future Signals
-            </TabsTrigger>
-          </TabsList>
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <TabsList className="grid w-full max-w-md grid-cols-2">
+              <TabsTrigger value="payments" className="flex items-center gap-2">
+                <CreditCard className="w-4 h-4" />
+                Payments
+              </TabsTrigger>
+              <TabsTrigger value="signals" className="flex items-center gap-2">
+                <Zap className="w-4 h-4" />
+                Future Signals
+              </TabsTrigger>
+            </TabsList>
+            
+            {/* Telegram Test Button */}
+            <Button
+              onClick={handleTelegramTest}
+              disabled={isTelegramTesting}
+              variant="outline"
+              size="sm"
+              className="border-cyan-500/50 text-cyan-500 hover:bg-cyan-500/10"
+            >
+              {isTelegramTesting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                <>
+                  <Send className="w-4 h-4 mr-2" />
+                  Test Telegram
+                </>
+              )}
+            </Button>
+          </div>
 
           <TabsContent value="payments" className="space-y-8">
             {/* Stats */}
