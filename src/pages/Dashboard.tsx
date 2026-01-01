@@ -6,28 +6,17 @@ import {
   Zap, 
   Trophy, 
   Crown, 
-  Settings, 
-  Lock
+  Settings
 } from "lucide-react";
 import { useIPUsageTracking } from "@/hooks/useIPUsageTracking";
 import { useAuth } from "@/hooks/useAuth";
 import { useAdmin } from "@/hooks/useAdmin";
-import { toast } from "sonner";
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const { remaining, dailyLimit, isLoading: usageLoading, isVip } = useIPUsageTracking();
+  const { isVip } = useIPUsageTracking();
   const { user } = useAuth();
   const { isAdmin } = useAdmin();
-
-
-  if (usageLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="animate-pulse text-muted-foreground">Loading...</div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -143,26 +132,25 @@ const Dashboard = () => {
               </div>
             </div>
 
-            {/* Chart Analyzer Card - Shows lock on click (Second) */}
+            {/* Chart Analyzer Card - ACTIVE (Second) */}
             <div 
-              onClick={() => toast.error("UNDER MAINTENANCE - Coming back soon")}
-              className="rounded-2xl border border-border/50 bg-card/50 backdrop-blur-sm p-6 cursor-pointer hover:border-primary/30 transition-all duration-300"
+              onClick={() => navigate("/chart-analyzer")}
+              className="rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/10 to-primary/5 backdrop-blur-sm p-6 cursor-pointer hover:border-primary/50 hover:shadow-[0_0_30px_-10px_hsl(var(--primary)/0.4)] transition-all duration-300"
             >
               <div className="space-y-4">
                 <div className="flex items-center gap-3">
-                  <div className="p-3 rounded-xl bg-primary/10 relative">
+                  <div className="p-3 rounded-xl bg-primary/20">
                     <BarChart3 className="w-8 h-8 text-primary" />
-                    <Lock className="w-4 h-4 text-muted-foreground absolute -bottom-1 -right-1" />
                   </div>
                   <div>
                     <h3 className="text-xl font-bold text-foreground">Chart Analyzer</h3>
-                    <p className="text-sm text-muted-foreground">AI-powered analysis</p>
+                    <p className="text-sm text-primary">Live & Active</p>
                   </div>
                 </div>
                 <p className="text-muted-foreground">
                   Upload your trading chart and get instant AI analysis with support, resistance, and next candle prediction.
                 </p>
-                <Button variant="outline" className="w-full">
+                <Button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">
                   <BarChart3 className="w-4 h-4 mr-2" />
                   Analyze Chart
                 </Button>
