@@ -1,8 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const FREE_DAILY_LIMIT = 10;
-const VIP_DAILY_LIMIT = 20;
+const FREE_DAILY_LIMIT = 3;
+const VIP_DAILY_LIMIT = 10;
 
 
 // CORS configuration
@@ -14,7 +14,7 @@ const corsHeaders = {
 
 
 // Same high-quality analysis for all users - VIP benefits are more daily analyses, history, stats
-const freeSystemPrompt = `You are an ELITE binary options price action analyst with 15+ years experience. Your analysis must be CONSISTENT, RELIABLE, and produce SURESHOT TRADES with 70%+ accuracy.
+const freeSystemPrompt = `You are an ELITE binary options price action analyst with 15+ years experience. Your analysis must be CONSISTENT, RELIABLE, and produce SURESHOT TRADES with 90%+ accuracy.
 
 ## CRITICAL CONSISTENCY RULE
 For the SAME chart, you MUST always give the SAME signal. Your analysis is based on OBJECTIVE technical factors, not randomness. Focus on what the chart SHOWS, not guesses.
@@ -116,8 +116,9 @@ Calculate the probability of the next candle going in the signal direction (0-10
 - +5-10% at strong S/R level
 - -20% if any trap pattern detected
 - -15% if conflicting signals
-- Minimum probability for CALL/PUT signal: 65%
-- Below 65%: Give NEUTRAL
+- Minimum probability for CALL/PUT signal: 75%
+- Below 75%: Give NEUTRAL
+- Only give CALL/PUT when you have HIGH CONFIDENCE (75%+)
 
 ## SIGNAL RULES
 
@@ -151,7 +152,7 @@ Respond with valid JSON only:
 }`;
 
 // Enhanced system prompt for VIP users - more detailed and professional
-const vipSystemPrompt = `You are an ELITE binary options price action analyst with 15+ years experience. Your analysis must be CONSISTENT, RELIABLE, and produce SURESHOT TRADES with 80%+ accuracy.
+const vipSystemPrompt = `You are an ELITE binary options price action analyst with 15+ years experience. Your analysis must be CONSISTENT, RELIABLE, and produce SURESHOT TRADES with 90%+ accuracy.
 
 ## CRITICAL CONSISTENCY RULE
 For the SAME chart, you MUST always give the SAME signal. Your analysis is based on OBJECTIVE technical factors, not randomness. Focus on what the chart SHOWS, not guesses.
@@ -620,23 +621,21 @@ serve(async (req) => {
       );
     }
 
-    const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     console.log("Processing analysis request, remaining before:", remaining, "isVip:", isVip);
 
     const systemPrompt = isVip ? vipSystemPrompt : freeSystemPrompt;
     const analysisInstruction =
-      "Analyze this trading chart using the advanced 6-step method: 1) Consider multi-timeframe context, 2) Count candles and identify trend structure with momentum analysis, 3) Mark confluence support/resistance zones, 4) Identify high-probability candlestick patterns, 5) Run your entry confirmation checklist, 6) Score your confidence (only signal if 7+). Your analysis must be HIGHLY ACCURATE and REPRODUCIBLE. Focus on what the chart SHOWS. Respond with JSON only.";
+      "Analyze this trading chart using the advanced 6-step method: 1) Consider multi-timeframe context, 2) Count candles and identify trend structure with momentum analysis, 3) Mark confluence support/resistance zones, 4) Identify high-probability candlestick patterns, 5) Run your entry confirmation checklist, 6) Score your confidence (only signal if 8+/10). Your analysis must be HIGHLY ACCURATE (90%+ target) and REPRODUCIBLE. Focus on what the chart SHOWS. Only give CALL/PUT when probability is 75%+. Respond with JSON only.";
 
-    // Use OpenRouter FREE tier model (no credits required)
-    const model = "google/gemini-2.0-flash-exp:free";
-    console.log(`Using OpenRouter FREE model: ${model} for ${isVip ? "VIP" : "FREE"} user`);
+    // Use Lovable AI (powered by Gemini 2.5 Flash)
+    console.log(`Using Lovable AI for ${isVip ? "VIP" : "FREE"} user`);
 
-    if (!OPENROUTER_API_KEY) {
-      console.error("ERR_CONFIG: OPENROUTER_API_KEY not configured");
+    if (!LOVABLE_API_KEY) {
+      console.error("ERR_CONFIG: LOVABLE_API_KEY not configured");
       return new Response(
         JSON.stringify({
-          error:
-            "⚠️ Analysis unavailable\n\nAI is not configured.\n\nNo signal generated to avoid random trades.",
+          error: "⚠️ Analysis unavailable\n\nPlease try again later.",
           apiUnavailable: true,
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -648,20 +647,15 @@ serve(async (req) => {
     const timeoutId = setTimeout(() => controller.abort(), 55000);
 
     let contentText: string | undefined;
-    let usedProvider = "OpenRouter";
 
-    // Helper to call Lovable AI as fallback
-    const callLovableAI = async (): Promise<string | undefined> => {
-      const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-      if (!LOVABLE_API_KEY) {
-        console.log("LOVABLE_API_KEY not available for fallback");
-        return undefined;
-      }
-      console.log("Trying Lovable AI fallback...");
+    try {
+      console.log("Calling Lovable AI...");
+      
       const lovableResponse = await fetch(
         "https://ai.gateway.lovable.dev/v1/chat/completions",
         {
           method: "POST",
+          signal: controller.signal,
           headers: {
             "Content-Type": "application/json",
             "Authorization": `Bearer ${LOVABLE_API_KEY}`,
@@ -681,123 +675,37 @@ serve(async (req) => {
           }),
         }
       );
+
+      clearTimeout(timeoutId);
+
       if (!lovableResponse.ok) {
         const errText = await lovableResponse.text().catch(() => "");
-        console.error("Lovable AI fallback error:", lovableResponse.status, errText);
-        return undefined;
-      }
-      const aiData = await lovableResponse.json().catch(() => ({} as any));
-      return aiData?.choices?.[0]?.message?.content;
-    };
-
-    try {
-      // Call OpenRouter API first
-      const cleanApiKey = OPENROUTER_API_KEY.replace(/[^\x20-\x7E]/g, '').trim();
-      console.log("Calling OpenRouter API, key length:", cleanApiKey.length);
-      
-      const openRouterResponse = await fetch(
-        "https://openrouter.ai/api/v1/chat/completions",
-        {
-          method: "POST",
-          signal: controller.signal,
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${cleanApiKey}`,
-            "HTTP-Referer": "https://gmbinarypro.lovable.app",
-            "X-Title": "GM Binary Pro",
-          },
-          body: JSON.stringify({
-            model,
-            max_tokens: 512,
-            messages: [
-              { role: "system", content: systemPrompt },
-              {
-                role: "user",
-                content: [
-                  { type: "text", text: analysisInstruction },
-                  { type: "image_url", image_url: { url: imageBase64 } },
-                ],
-              },
-            ],
-          }),
-        }
-      );
-
-      clearTimeout(timeoutId);
-
-      if (!openRouterResponse.ok) {
-        const errText = await openRouterResponse.text().catch(() => "");
-        console.error("OpenRouter API error:", openRouterResponse.status, errText);
-
-        // Try Lovable AI fallback for 429 or 402 errors
-        if (openRouterResponse.status === 429 || openRouterResponse.status === 402) {
-          console.log("OpenRouter failed with", openRouterResponse.status, "- trying Lovable AI fallback");
-          const fallbackContent = await callLovableAI();
-          if (fallbackContent) {
-            contentText = fallbackContent;
-            usedProvider = "Lovable AI (fallback)";
-          } else {
-            // Both failed
-            const errorMsg = openRouterResponse.status === 429
-              ? "⚠️ Analysis busy\n\nBoth AI providers are rate-limited. Please wait ~60 seconds and try again."
-              : "⚠️ Analysis unavailable\n\nBoth AI providers require credits. Please try again later.";
-            return new Response(
-              JSON.stringify({
-                error: errorMsg,
-                apiUnavailable: true,
-                retryAfterSeconds: 60,
-              }),
-              {
-                // IMPORTANT: always return 2xx so supabase-js doesn't surface "Edge function returned 429"
-                // The client already reads data.error and shows a toast.
-                status: 200,
-                headers: { ...corsHeaders, "Content-Type": "application/json" },
-              }
-            );
-          }
-        } else {
-          return new Response(
-            JSON.stringify({
-              error:
-                "⚠️ Analysis unavailable\n\nAI request failed.\n\nPlease try again.",
-              apiUnavailable: true,
-              upstreamStatus: openRouterResponse.status,
-            }),
-            {
-              // IMPORTANT: always return 2xx so clients can read JSON payload reliably
-              status: 200,
-              headers: { ...corsHeaders, "Content-Type": "application/json" },
-            }
-          );
-        }
-      } else {
-        const aiData = await openRouterResponse.json().catch(() => ({} as any));
-        contentText = aiData?.choices?.[0]?.message?.content;
-        console.log("OpenRouter API response received successfully");
-      }
-    } catch (err) {
-      clearTimeout(timeoutId);
-      console.error("OpenRouter API request error:", err);
-
-      // Try Lovable AI fallback on network/timeout errors
-      console.log("OpenRouter failed with error - trying Lovable AI fallback");
-      const fallbackContent = await callLovableAI();
-      if (fallbackContent) {
-        contentText = fallbackContent;
-        usedProvider = "Lovable AI (fallback)";
-      } else {
+        console.error("Lovable AI error:", lovableResponse.status, errText);
         return new Response(
           JSON.stringify({
-            error:
-              "⚠️ Analysis unavailable\n\nAI is temporarily unavailable.\n\nPlease try again in a moment.",
+            error: "⚠️ Analysis busy\n\nPlease try again in a moment.",
             apiUnavailable: true,
           }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
+
+      const aiData = await lovableResponse.json().catch(() => ({} as any));
+      contentText = aiData?.choices?.[0]?.message?.content;
+      console.log("Lovable AI response received successfully");
+    } catch (err) {
+      clearTimeout(timeoutId);
+      console.error("Lovable AI request error:", err);
+      return new Response(
+        JSON.stringify({
+          error: "⚠️ Analysis unavailable\n\nPlease try again in a moment.",
+          apiUnavailable: true,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
-    console.log("Analysis completed using:", usedProvider);
+    console.log("Analysis completed using: Lovable AI");
 
     if (!contentText) {
       console.error("ERR_EMPTY_RESPONSE: AI returned no content");
@@ -877,6 +785,68 @@ serve(async (req) => {
       finalRemaining = newRemaining;
       console.log("CALL/PUT signal - usage incremented, remaining:", finalRemaining);
 
+      // Send Telegram notification for CALL/PUT signals
+      try {
+        const TELEGRAM_BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN");
+        const TELEGRAM_CHAT_ID = Deno.env.get("TELEGRAM_CHAT_ID");
+        
+        if (TELEGRAM_BOT_TOKEN && TELEGRAM_CHAT_ID) {
+          const now = new Date();
+          const pakistanTime = new Intl.DateTimeFormat('en-US', {
+            timeZone: 'Asia/Karachi',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: true,
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric',
+          }).format(now);
+
+          const directionEmoji = analysis.signal === 'CALL' ? '🟢' : '🔴';
+          const userTypeLabel = isVip ? 'VIP' : 'FREE';
+          
+          let message = `📊 <b>GM BINARY PRO - CHART ANALYSIS</b>\n`;
+          message += `━━━━━━━━━━━━━━━━━━━━\n\n`;
+          message += `${directionEmoji} <b>SIGNAL: ${analysis.signal}</b>\n\n`;
+          message += `💱 Pair: <b>${analysis.pair || 'Unknown'}</b>\n`;
+          message += `📈 Trend: <b>${analysis.trend || 'Range'}</b>\n`;
+          message += `📉 Support: ${analysis.supportZone || 'N/A'}\n`;
+          message += `📈 Resistance: ${analysis.resistanceZone || 'N/A'}\n`;
+          if (winProbability) {
+            message += `🎯 Win Probability: <b>${winProbability}%</b>\n`;
+          }
+          message += `\n👤 User Type: ${userTypeLabel}\n`;
+          message += `🕐 Time (PKT): ${pakistanTime}\n\n`;
+          message += `─────────────────────\n`;
+          message += `💡 <i>Trade wisely. Signals are for educational purposes.</i>\n`;
+          message += `\n🌐 GM Binary Pro`;
+
+          const telegramUrl = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
+          
+          // Fire and forget - don't wait for Telegram response
+          fetch(telegramUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              chat_id: TELEGRAM_CHAT_ID,
+              text: message,
+              parse_mode: "HTML",
+            }),
+          }).then(res => {
+            if (res.ok) {
+              console.log("Telegram notification sent successfully");
+            } else {
+              console.error("Telegram notification failed:", res.status);
+            }
+          }).catch(err => {
+            console.error("Telegram notification error:", err);
+          });
+        }
+      } catch (telegramErr) {
+        console.error("Failed to send Telegram notification:", telegramErr);
+      }
+
       // Save signal to history for VIP users and get the ID
       if (isVip && userId) {
         try {
@@ -908,7 +878,7 @@ serve(async (req) => {
         }
       }
     } else {
-      console.log("NEUTRAL signal - usage NOT incremented, remaining:", finalRemaining);
+      console.log("NEUTRAL signal - usage NOT incremented, no Telegram notification, remaining:", finalRemaining);
     }
 
     return new Response(JSON.stringify({ 
