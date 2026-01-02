@@ -4,15 +4,15 @@ export const PAYMENT_CONFIG = {
   vipPrice: 2.5,
   currency: 'USDT',
   vipDurationDays: 30, // 1 month
-  vipDailyLimit: 20,
-  freeDailyLimit: 10,
+  vipDailyLimit: 10, // Must match edge function VIP_DAILY_LIMIT
+  freeDailyLimit: 3, // Must match edge function FREE_DAILY_LIMIT
   // Pakistani Bank Payment
   pakistanBankPrice: 699,
   pakistanCurrency: 'PKR',
 };
 
 export const VIP_FEATURES = [
-  '20 analyses per day',
+  '10 analyses per day',
   'Priority signal processing',
   'Advanced multi-timeframe analysis',
   'Personal accuracy statistics',

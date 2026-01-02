@@ -1,5 +1,4 @@
 import { useNavigate } from "react-router-dom";
-import { GlobalAnalysisCounter } from "@/components/GlobalAnalysisCounter";
 import { Button } from "@/components/ui/button";
 import { 
   BarChart3, 
@@ -91,8 +90,7 @@ const Dashboard = () => {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8 max-w-5xl flex-1">
         <div className="space-y-8">
-          {/* Global Analysis Counter - Live Badge */}
-          <GlobalAnalysisCounter />
+          {/* Hero Section */}
 
           {/* Hero Section */}
           <div className="text-center space-y-4 py-4">
