@@ -9,7 +9,7 @@ import { PersonalStats } from "@/components/PersonalStats";
 import { SignalHistory } from "@/components/SignalHistory";
 import { GlobalAnalysisCounter } from "@/components/GlobalAnalysisCounter";
 import { Button } from "@/components/ui/button";
-import { Activity, BarChart3, Zap, Trophy, ExternalLink, Crown, Settings } from "lucide-react";
+import { Activity, BarChart3, Zap, Trophy, ExternalLink, Crown, Settings, ArrowLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { sanitizeAnalysisData } from "@/lib/validateAnalysis";
@@ -219,6 +219,15 @@ const Index = () => {
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
+              {/* Back Button */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => navigate("/")}
+                className="text-muted-foreground hover:text-foreground mr-2"
+              >
+                <ArrowLeft className="w-4 h-4" />
+              </Button>
               <div className="p-2 rounded-lg bg-primary/10 shadow-[0_0_30px_-5px_hsl(var(--primary)/0.4)]">
                 <BarChart3 className="w-6 h-6 text-primary" />
               </div>
@@ -298,20 +307,6 @@ const Index = () => {
         <div className="space-y-8">
           {/* Global Analysis Counter - Live Badge */}
           <GlobalAnalysisCounter />
-
-          {/* Hero Section */}
-          <div className="text-center space-y-4 py-4">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 text-primary text-sm font-medium">
-              <Zap className="w-4 h-4" />
-              1-Minute Timeframe Analysis
-            </div>
-            <h2 className="text-3xl md:text-4xl font-bold text-foreground">
-              AI-Powered <span className="text-gradient">Chart Analysis</span>
-            </h2>
-            <p className="text-muted-foreground max-w-xl mx-auto">
-              Upload your trading chart screenshot and get instant price action analysis with support, resistance, and next candle bias.
-            </p>
-          </div>
 
           {/* Usage Warning - Show for all users */}
           <div className="flex justify-center">
