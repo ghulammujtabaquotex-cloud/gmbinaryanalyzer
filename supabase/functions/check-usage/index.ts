@@ -4,26 +4,10 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const FREE_DAILY_LIMIT = 3;
 const VIP_DAILY_LIMIT = 10;
 
-// CORS configuration
-const getAllowedOrigin = (requestOrigin: string | null): string => {
-  if (!requestOrigin) {
-    return "https://rbqafiykevtbgztczizr.lovableproject.com";
-  }
-  
-  const allowedPatterns = [
-    /^https:\/\/[a-z0-9-]+\.lovableproject\.com$/,
-    /^https:\/\/gmbinarypro\.lovable\.app$/,
-    /^https:\/\/id-preview--[a-z0-9-]+\.lovable\.app$/,
-    /^https?:\/\/(localhost|127\.0\.0\.1)(:\d{1,5})?$/,
-  ];
-  
-  for (const pattern of allowedPatterns) {
-    if (pattern.test(requestOrigin)) {
-      return requestOrigin;
-    }
-  }
-  
-  return "https://rbqafiykevtbgztczizr.lovableproject.com";
+// CORS configuration - allow all lovable preview domains
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
 // Secure IP extraction - ONLY trust CF-Connecting-IP
@@ -87,12 +71,6 @@ const checkVipStatus = async (
 };
 
 serve(async (req) => {
-  const origin = req.headers.get("origin");
-  const corsHeaders = {
-    "Access-Control-Allow-Origin": getAllowedOrigin(origin),
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  };
-
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }

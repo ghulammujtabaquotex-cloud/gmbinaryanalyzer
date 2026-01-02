@@ -1,25 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-// CORS configuration with strict validation
-const getAllowedOrigin = (requestOrigin: string | null): string => {
-  if (!requestOrigin) {
-    return "https://rbqafiykevtbgztczizr.lovableproject.com";
-  }
-  
-  const allowedPatterns = [
-    /^https:\/\/rbqafiykevtbgztczizr\.lovableproject\.com$/,
-    /^https:\/\/gmbinarypro\.lovable\.app$/,
-    /^https?:\/\/(localhost|127\.0\.0\.1)(:\d{1,5})?$/,
-  ];
-  
-  for (const pattern of allowedPatterns) {
-    if (pattern.test(requestOrigin)) {
-      return requestOrigin;
-    }
-  }
-  
-  return "https://rbqafiykevtbgztczizr.lovableproject.com";
+// CORS configuration - allow all lovable preview domains
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
 // Secure IP extraction - only trust Cloudflare header
@@ -93,15 +78,10 @@ const checkAndIncrementSubmission = async (
 };
 
 serve(async (req) => {
-  const origin = req.headers.get("origin");
-  const corsHeaders = {
-    "Access-Control-Allow-Origin": getAllowedOrigin(origin),
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  };
-
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
+
 
   try {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
