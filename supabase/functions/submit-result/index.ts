@@ -186,11 +186,36 @@ serve(async (req) => {
 
     if (!insertResponse.ok) {
       const errorText = await insertResponse.text();
-      console.error("Insert failed:", insertResponse.status, errorText);
+      console.error("Insert trade_results failed:", insertResponse.status, errorText);
       return new Response(
         JSON.stringify({ error: "Failed to save result" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
+    }
+
+    // Also insert into signals_history for global tracking
+    const signalsHistoryResponse = await fetch(
+      `${SUPABASE_URL}/rest/v1/signals_history`,
+      {
+        method: "POST",
+        headers: {
+          "apikey": SUPABASE_SERVICE_ROLE_KEY,
+          "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+          "Content-Type": "application/json",
+          "Prefer": "return=minimal",
+        },
+        body: JSON.stringify({
+          direction: signal,
+          pair: "CHART_ANALYSIS",
+          signal_time: new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }),
+          ip_address: clientIP,
+        }),
+      }
+    );
+
+    if (!signalsHistoryResponse.ok) {
+      console.error("Insert signals_history failed:", signalsHistoryResponse.status);
+      // Don't fail the request, trade_results is the primary table
     }
 
     console.log("Result saved successfully for IP:", clientIP.slice(0, 10) + "***", "remaining:", remaining);
