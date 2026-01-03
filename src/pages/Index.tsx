@@ -5,8 +5,6 @@ import { AnalysisResults, type AnalysisData } from "@/components/AnalysisResults
 import { LoadingAnalysis } from "@/components/LoadingAnalysis";
 import { UsageWarning } from "@/components/UsageWarning";
 import { FeedbackPrompt } from "@/components/FeedbackPrompt";
-import { PersonalStats } from "@/components/PersonalStats";
-import { SignalHistory } from "@/components/SignalHistory";
 import { GlobalAnalysisCounter } from "@/components/GlobalAnalysisCounter";
 import { Button } from "@/components/ui/button";
 import { Activity, BarChart3, Zap, Trophy, ExternalLink, Crown, Settings, ArrowLeft } from "lucide-react";
@@ -213,7 +211,7 @@ const Index = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-screen bg-background flex flex-col overflow-x-hidden">
       {/* Header */}
       <header className="border-b border-border/50 backdrop-blur-sm sticky top-0 z-50 bg-background/80">
         <div className="container mx-auto px-4 py-4">
@@ -313,12 +311,21 @@ const Index = () => {
             <UsageWarning remaining={remaining} dailyLimit={dailyLimit} isVip={isVip} />
           </div>
 
-          {/* VIP Notice */}
+          {/* VIP Notice with WhatsApp */}
           {showVIPNotice && (
             <div className="flex justify-center">
               <div className="bg-primary/10 border border-primary/30 rounded-xl p-6 text-center max-w-md">
                 <h3 className="text-xl font-bold text-primary mb-2">Daily Limit Reached</h3>
-                <p className="text-lg font-semibold text-foreground">JOIN VIP FOR MORE CREDIT</p>
+                <p className="text-lg font-semibold text-foreground mb-4">JOIN VIP FOR MORE CREDIT</p>
+                <a
+                  href="https://wa.me/923313063104?text=I%20want%20to%20join%20your%20VIP"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-success text-success-foreground font-bold hover:bg-success/90 transition-colors"
+                >
+                  <Crown className="w-5 h-5" />
+                  Contact on WhatsApp
+                </a>
               </div>
             </div>
           )}
@@ -363,42 +370,18 @@ const Index = () => {
                       Daily Free Limit Reached
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      Want premium features?{" "}
-                      <a
-                        href="/pricing"
-                        className="text-primary font-bold hover:underline"
-                      >
-                        BUY PLAN
-                      </a>
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      OR CREATE ACCOUNT WITH THIS LINK{" "}
-                      <a
-                        href="https://broker-qx.pro/sign-up/?lid=1416949"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-primary font-bold hover:underline"
-                      >
-                        CLICK HERE
-                      </a>{" "}
-                      AND SEND TRADER ID:{" "}
-                      <a
-                        href="https://wa.me/923313063104"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-success font-bold hover:underline"
-                      >
-                        WhatsApp +923313063104
-                      </a>
+                      Contact us on WhatsApp to join VIP
                     </p>
                   </div>
-                  <Button
-                    onClick={() => navigate("/pricing")}
-                    className="mt-2 relative overflow-hidden bg-gradient-to-r from-primary via-primary/80 to-primary hover:from-primary/90 hover:via-primary hover:to-primary/90 text-primary-foreground font-bold px-8 py-3 rounded-full shadow-[0_0_20px_hsl(var(--primary)/0.5)] hover:shadow-[0_0_30px_hsl(var(--primary)/0.7)] transition-all duration-300 animate-pulse hover:animate-none"
+                  <a
+                    href="https://wa.me/923313063104?text=I%20want%20to%20join%20your%20VIP"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-success text-success-foreground font-bold hover:bg-success/90 transition-colors shadow-[0_0_20px_hsl(var(--success)/0.5)]"
                   >
-                    <Zap className="w-5 h-5 mr-2" />
-                    GET NOW
-                  </Button>
+                    <Crown className="w-5 h-5" />
+                    WhatsApp +923313063104
+                  </a>
                 </div>
               </div>
             ) : (
@@ -465,13 +448,6 @@ const Index = () => {
             </section>
           )}
 
-          {/* VIP Features Section */}
-          {isVip && user && !analysisResult && !isAnalyzing && (
-            <section className="space-y-4">
-              <PersonalStats />
-              <SignalHistory />
-            </section>
-          )}
 
           {/* Info Cards */}
           {!analysisResult && !isAnalyzing && !pendingFeedback && !isVip && (

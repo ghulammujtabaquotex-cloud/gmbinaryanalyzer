@@ -270,7 +270,7 @@ const [usageInfo, setUsageInfo] = useState({ used: 0, limit: 3, isVip: false });
   };
 
   return (
-    <div className="min-h-screen bg-[#0c0c0c] text-[#33ff33] font-mono p-4 md:p-8">
+    <div className="min-h-screen bg-[#0c0c0c] text-[#33ff33] font-mono p-4 md:p-8 overflow-x-hidden">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <Button
