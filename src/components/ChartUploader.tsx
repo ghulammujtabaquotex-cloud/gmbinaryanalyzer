@@ -144,6 +144,9 @@ export function ChartUploader({ onImageSelect, selectedImage, disabled = false }
             <p className="text-xs text-muted-foreground">
               PNG, JPG or WebP (auto-compressed for fast analysis)
             </p>
+            <p className="text-xs text-warning font-medium mt-2">
+              ⏱️ Upload chart when 15 sec remains of candle closing
+            </p>
             {isCompressing && (
               <p className="text-xs text-primary mt-1 animate-pulse">Compressing image…</p>
             )}
