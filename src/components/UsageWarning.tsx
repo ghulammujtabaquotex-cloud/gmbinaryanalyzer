@@ -17,14 +17,36 @@ const VIP_QUICK_FEATURES = [
 ];
 
 export const UsageWarning = ({ remaining, dailyLimit, isVip }: UsageWarningProps) => {
-  // VIP and admin users don't see the free plan bar at all
+  const usedPercentage = ((dailyLimit - remaining) / dailyLimit) * 100;
+
+  // VIP/Admin users see a compact VIP status bar
   if (isVip) {
-    return null;
+    return (
+      <div className="w-full max-w-2xl mx-auto">
+        <div className="rounded-xl bg-gradient-to-r from-amber-500/10 to-yellow-500/10 border border-amber-500/30 p-4">
+          <div className="flex items-center justify-center gap-2 mb-3">
+            <Crown className="w-5 h-5 text-amber-500" />
+            <span className="text-lg font-semibold text-amber-500">VIP Member</span>
+          </div>
+          <div className="space-y-2">
+            <div className="flex items-center justify-center gap-2 text-sm">
+              <span className="text-muted-foreground">
+                <span className="font-bold text-foreground">{remaining}</span> of {dailyLimit} analyses remaining today
+              </span>
+            </div>
+            <div className="w-full max-w-xs mx-auto h-2 bg-background/50 rounded-full overflow-hidden border border-amber-500/30">
+              <div 
+                className="h-full bg-gradient-to-r from-amber-500 to-yellow-500 transition-all duration-300"
+                style={{ width: `${usedPercentage}%` }}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
-  // Show usage limit + promotional text for free users
-  const usedPercentage = ((dailyLimit - remaining) / dailyLimit) * 100;
-  
+  // Free users see usage + promotional text
   return (
     <div className="w-full max-w-2xl mx-auto">
       <div className="rounded-xl bg-muted/50 border border-border p-4">
