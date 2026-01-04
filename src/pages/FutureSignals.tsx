@@ -30,10 +30,15 @@ const FutureSignals = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [globalCount, setGlobalCount] = useState(0);
   const [copied, setCopied] = useState(false);
-const [usageInfo, setUsageInfo] = useState({ used: 0, limit: 3, isVip: false });
+  const [usageInfo, setUsageInfo] = useState({ used: 0, limit: 3, isVip: false });
   const FREE_SIGNAL_LIMIT = 3;
-  const VIP_SIGNAL_LIMIT = 10;
+  const VIP_SIGNAL_LIMIT = 20;
   const terminalRef = useRef<HTMLDivElement>(null);
+
+  const openWhatsAppForSignals = () => {
+    const message = encodeURIComponent("I need future signals");
+    window.open(`https://wa.me/923313063104?text=${message}`, '_blank');
+  };
 
   // Get Pakistan time
   const getPakistanTime = () => {
@@ -211,7 +216,12 @@ const [usageInfo, setUsageInfo] = useState({ used: 0, limit: 3, isVip: false });
       if (validSignals.length === 0) {
         addLog('');
         addLog('>> SYSTEM ALERT: No signal found.');
-        addLog('>> Please check back later or contact admin.');
+        addLog('>> Opening WhatsApp to request signals...');
+        
+        // Auto open WhatsApp after a delay
+        setTimeout(() => {
+          openWhatsAppForSignals();
+        }, 2000);
       } else {
         addLog('');
         addLog('>> SIGNALS FOUND:');
