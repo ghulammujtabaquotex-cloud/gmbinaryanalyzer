@@ -143,12 +143,12 @@ GIVE NEUTRAL WHEN:
 Respond with valid JSON only:
 {
   "pair": "SYMBOL/QUOTE",
-  "trend": "Uptrend" | "Downtrend" | "Range",
+  "trend": "Range",
   "signal": "CALL" | "PUT" | "NEUTRAL",
   "winProbability": 75,
   "supportZone": "price level or range",
   "resistanceZone": "price level or range", 
-  "explanation": "Trend: [describe trend]. Trap Check: [PASSED/DETECTED - describe]. Pattern: [candlestick pattern]. Key Level: [S/R interaction]. Indicators: [if visible]. Sureshot Score: [X/5 factors]. Win probability: [X]%. Signal: [reason]."
+  "explanation": "Confirmation: [describe confirmations]. Pattern: [candlestick pattern]. Key Levels: Support at [X], Resistance at [Y]. Indicators: [RSI/MACD/MA status if visible]. Price Action: [describe recent candle behavior]. Win probability: [X]%. Signal: [reason]."
 }`;
 
 // Enhanced system prompt for VIP users - more detailed and professional
@@ -317,11 +317,12 @@ GIVE NEUTRAL WHEN:
 Respond with valid JSON only:
 {
   "pair": "SYMBOL/QUOTE",
-  "trend": "Uptrend" | "Downtrend" | "Range",
+  "trend": "Range",
   "signal": "CALL" | "PUT" | "NEUTRAL",
+  "winProbability": 85,
   "supportZone": "price level or range",
   "resistanceZone": "price level or range", 
-  "explanation": "Trend: [describe with candle count]. Trap Check: [PASSED/DETECTED - specify type]. Pattern: [candlestick pattern]. Key Level: [S/R interaction]. Indicators: [RSI/MACD/MA status if visible]. Sureshot Score: [X/5 factors]. Confidence: [X/10]. Signal: [detailed reason with entry logic]."
+  "explanation": "Confirmation: [describe confirmations with candle count]. Trap Check: [PASSED/DETECTED - specify type]. Pattern: [candlestick pattern]. Key Levels: Support at [X], Resistance at [Y]. Indicators: [RSI/MACD/MA status if visible]. Price Action: [describe recent candle behavior]. Confidence: [X/10]. Signal: [detailed reason with entry logic]."
 }`;
 
 // Image magic bytes for validation

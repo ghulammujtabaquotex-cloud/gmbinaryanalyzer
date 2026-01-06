@@ -1,5 +1,5 @@
 import { SignalBadge } from "./SignalBadge";
-import { TrendingUp, TrendingDown, Activity, Target, Shield, FileText, AlertTriangle, Crown, Percent } from "lucide-react";
+import { Activity, Target, Shield, FileText, AlertTriangle, Crown, Percent } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface AnalysisData {
@@ -108,8 +108,6 @@ function WinProbabilityGauge({ probability }: { probability: number }) {
 }
 
 export function AnalysisResults({ data, isVip = false }: AnalysisResultsProps) {
-  const TrendIcon = data.trend === "Uptrend" ? TrendingUp : data.trend === "Downtrend" ? TrendingDown : Activity;
-  const trendColor = data.trend === "Uptrend" ? "text-success" : data.trend === "Downtrend" ? "text-destructive" : "text-warning";
   const isTradeSignal = data.signal === "CALL" || data.signal === "PUT";
 
   // Get win probability
@@ -163,7 +161,7 @@ export function AnalysisResults({ data, isVip = false }: AnalysisResultsProps) {
         </div>
 
         {/* Grid of details */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <ResultCard 
             icon={Activity} 
             label="Trading Pair" 
@@ -171,22 +169,16 @@ export function AnalysisResults({ data, isVip = false }: AnalysisResultsProps) {
             delay={100}
           />
           <ResultCard 
-            icon={TrendIcon} 
-            label="Current Trend" 
-            value={<span className={trendColor}>{data.trend}</span>}
-            delay={150}
-          />
-          <ResultCard 
             icon={Shield} 
             label="Support Zone" 
             value={<span className="font-mono text-success">{data.supportZone}</span>}
-            delay={200}
+            delay={150}
           />
           <ResultCard 
             icon={Target} 
             label="Resistance Zone" 
             value={<span className="font-mono text-destructive">{data.resistanceZone}</span>}
-            delay={250}
+            delay={200}
           />
         </div>
 
