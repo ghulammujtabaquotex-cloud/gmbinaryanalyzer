@@ -30,10 +30,14 @@ const FutureSignals = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [globalCount, setGlobalCount] = useState(0);
   const [copied, setCopied] = useState(false);
-  const [usageInfo, setUsageInfo] = useState({ used: 0, limit: 3, isVip: false });
-  const FREE_SIGNAL_LIMIT = 3;
+  const [usageInfo, setUsageInfo] = useState({ used: 0, limit: 20, isVip: false, isLoading: true });
   const VIP_SIGNAL_LIMIT = 20;
   const terminalRef = useRef<HTMLDivElement>(null);
+
+  const openWhatsAppForVIP = () => {
+    const message = encodeURIComponent("I want to join your VIP");
+    window.open(`https://wa.me/923313063104?text=${message}`, '_blank');
+  };
 
   const openWhatsAppForSignals = () => {
     const message = encodeURIComponent("I need future signals");
@@ -86,9 +90,9 @@ const FutureSignals = () => {
     };
   }, []);
 
-  // Check usage on mount
+  // Check VIP status on mount
   useEffect(() => {
-    checkUsage();
+    checkVipStatus();
   }, [user]);
 
   const getClientIP = async (): Promise<string> => {
@@ -101,7 +105,7 @@ const FutureSignals = () => {
     }
   };
 
-  const checkUsage = async () => {
+  const checkVipStatus = async () => {
     const ip = await getClientIP();
     const today = getPakistanDate();
     
@@ -125,19 +129,27 @@ const FutureSignals = () => {
       if (roleData) isVip = true;
     }
 
-    const limit = isVip ? VIP_SIGNAL_LIMIT : FREE_SIGNAL_LIMIT;
+    // If VIP, get usage info
+    if (isVip) {
+      const { data } = await supabase.rpc('check_future_signal_usage', {
+        p_ip_address: ip,
+        p_usage_date: today,
+        p_daily_limit: VIP_SIGNAL_LIMIT,
+      });
 
-    const { data } = await supabase.rpc('check_future_signal_usage', {
-      p_ip_address: ip,
-      p_usage_date: today,
-      p_daily_limit: limit,
-    });
-
-    if (data && data[0]) {
       setUsageInfo({
-        used: data[0].current_count,
-        limit,
-        isVip,
+        used: data?.[0]?.current_count ?? 0,
+        limit: VIP_SIGNAL_LIMIT,
+        isVip: true,
+        isLoading: false,
+      });
+    } else {
+      // Free user - no access
+      setUsageInfo({
+        used: 0,
+        limit: 0,
+        isVip: false,
+        isLoading: false,
       });
     }
   };
@@ -279,6 +291,76 @@ const FutureSignals = () => {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  // If loading, show loading state
+  if (usageInfo.isLoading) {
+    return (
+      <div className="min-h-screen bg-[#0c0c0c] text-[#33ff33] font-mono flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin text-4xl mb-4">⚙</div>
+          <p>Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // If not VIP, show Join VIP screen
+  if (!usageInfo.isVip) {
+    return (
+      <div className="min-h-screen bg-[#0c0c0c] text-[#33ff33] font-mono p-4 md:p-8 overflow-x-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
+          <Button
+            variant="ghost"
+            onClick={() => navigate('/')}
+            className="text-[#33ff33] hover:bg-[#33ff33]/10"
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Dashboard
+          </Button>
+        </div>
+
+        {/* VIP Only Content */}
+        <div className="max-w-2xl mx-auto mt-20">
+          <div className="bg-gradient-to-br from-yellow-500/20 to-orange-500/20 border-2 border-yellow-500/50 rounded-2xl p-8 text-center">
+            <Crown className="h-20 w-20 text-yellow-400 mx-auto mb-6" />
+            <h1 className="text-3xl md:text-4xl font-bold text-yellow-400 mb-4">
+              VIP Members Only
+            </h1>
+            <p className="text-gray-300 text-lg mb-6">
+              The Future Signal Generator is an exclusive feature for VIP members.
+              Upgrade now to access professional trading signals!
+            </p>
+            <div className="space-y-3 text-left max-w-md mx-auto mb-8">
+              <div className="flex items-center gap-3 text-gray-300">
+                <Check className="h-5 w-5 text-emerald-400" />
+                <span>20 signal generations per day</span>
+              </div>
+              <div className="flex items-center gap-3 text-gray-300">
+                <Check className="h-5 w-5 text-emerald-400" />
+                <span>Unlimited chart analysis</span>
+              </div>
+              <div className="flex items-center gap-3 text-gray-300">
+                <Check className="h-5 w-5 text-emerald-400" />
+                <span>Priority support</span>
+              </div>
+              <div className="flex items-center gap-3 text-gray-300">
+                <Check className="h-5 w-5 text-emerald-400" />
+                <span>Pakistan timezone optimized</span>
+              </div>
+            </div>
+            <Button
+              onClick={openWhatsAppForVIP}
+              className="bg-gradient-to-r from-yellow-500 to-orange-500 text-black font-bold text-lg px-8 py-6 hover:from-yellow-400 hover:to-orange-400"
+            >
+              <Crown className="mr-2 h-5 w-5" />
+              Join VIP
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#0c0c0c] text-[#33ff33] font-mono p-4 md:p-8 overflow-x-hidden">
       {/* Header */}
@@ -302,7 +384,7 @@ const FutureSignals = () => {
 
           {/* Usage Info */}
           <div className="flex items-center gap-2 bg-[#1a1a1a] border border-[#33ff33]/30 rounded-full px-4 py-2">
-            {usageInfo.isVip && <Crown className="h-4 w-4 text-yellow-400" />}
+            <Crown className="h-4 w-4 text-yellow-400" />
             <span className="text-gray-400 text-sm">
               {usageInfo.used}/{usageInfo.limit} uses
             </span>
@@ -411,27 +493,6 @@ const FutureSignals = () => {
             </Button>
           )}
         </div>
-
-        {/* Upgrade CTA */}
-        {!usageInfo.isVip && usageInfo.used >= usageInfo.limit && (
-          <div className="mt-8 text-center">
-            <div className="bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border border-yellow-500/40 rounded-lg p-6">
-              <Crown className="h-12 w-12 text-yellow-400 mx-auto mb-3" />
-              <h3 className="text-xl font-bold text-yellow-400 mb-2">
-                Upgrade to VIP
-              </h3>
-              <p className="text-gray-400 mb-4">
-                Get 10 signal generations per day + unlimited chart analysis
-              </p>
-              <Button
-                onClick={() => navigate('/pricing')}
-                className="bg-gradient-to-r from-yellow-500 to-orange-500 text-black font-bold"
-              >
-                View Pricing
-              </Button>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
