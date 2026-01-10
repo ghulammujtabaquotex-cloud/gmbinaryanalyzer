@@ -103,34 +103,9 @@ const Dashboard = () => {
           </div>
 
 
-          {/* Trading Tools Grid - Future Signals FIRST, then Chart Analyzer */}
+          {/* Trading Tools Grid - Chart Analyzer FIRST, then Future Signals */}
           <div className="grid md:grid-cols-2 gap-6 mt-8">
-            {/* Future Signals Card - ACTIVE (First) */}
-            <div 
-              onClick={() => navigate("/future-signals")}
-              className="rounded-2xl border border-emerald-500/30 bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 backdrop-blur-sm p-6 cursor-pointer hover:border-emerald-500/50 hover:shadow-[0_0_30px_-10px_rgba(16,185,129,0.4)] transition-all duration-300"
-            >
-              <div className="space-y-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-3 rounded-xl bg-emerald-500/20">
-                    <Zap className="w-8 h-8 text-emerald-500" />
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-bold text-foreground">Future Signals</h3>
-                    <p className="text-sm text-emerald-500">Live & Active</p>
-                  </div>
-                </div>
-                <p className="text-muted-foreground">
-                  Generate upcoming trading signals with our professional terminal interface. Pakistan timezone optimized.
-                </p>
-                <Button className="w-full bg-emerald-500 hover:bg-emerald-600 text-white">
-                  <Zap className="w-4 h-4 mr-2" />
-                  Open Generator
-                </Button>
-              </div>
-            </div>
-
-            {/* Chart Analyzer Card - ACTIVE (Second) */}
+            {/* Chart Analyzer Card - ACTIVE (First) */}
             <div 
               onClick={() => navigate("/chart-analyzer")}
               className="rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/10 to-primary/5 backdrop-blur-sm p-6 cursor-pointer hover:border-primary/50 hover:shadow-[0_0_30px_-10px_hsl(var(--primary)/0.4)] transition-all duration-300"
@@ -151,6 +126,31 @@ const Dashboard = () => {
                 <Button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">
                   <BarChart3 className="w-4 h-4 mr-2" />
                   Analyze Chart
+                </Button>
+              </div>
+            </div>
+
+            {/* Future Signals Card (Second) */}
+            <div 
+              onClick={() => navigate("/future-signals")}
+              className="rounded-2xl border border-emerald-500/30 bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 backdrop-blur-sm p-6 cursor-pointer hover:border-emerald-500/50 hover:shadow-[0_0_30px_-10px_rgba(16,185,129,0.4)] transition-all duration-300"
+            >
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-3 rounded-xl bg-emerald-500/20">
+                    <Zap className="w-8 h-8 text-emerald-500" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-foreground">Future Signals</h3>
+                    <p className="text-sm text-emerald-500">VIP Only</p>
+                  </div>
+                </div>
+                <p className="text-muted-foreground">
+                  Generate upcoming trading signals with our professional terminal interface. Pakistan timezone optimized.
+                </p>
+                <Button className="w-full bg-emerald-500 hover:bg-emerald-600 text-white">
+                  <Zap className="w-4 h-4 mr-2" />
+                  Open Generator
                 </Button>
               </div>
             </div>
