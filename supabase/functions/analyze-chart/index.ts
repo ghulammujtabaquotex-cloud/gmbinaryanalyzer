@@ -13,182 +13,151 @@ const corsHeaders = {
 };
 
 
-// Same high-quality analysis for all users - VIP benefits are more daily analyses, history, stats
-const freeSystemPrompt = `You are an expert binary options analyst. Your ONLY job is to predict WHERE THE NEXT CANDLE WILL GO based on the current chart.
-
-## YOUR MISSION
-Predict the direction of the NEXT SINGLE CANDLE (1 minute). Will it close GREEN (up) or RED (down)?
+// Comprehensive technical analysis prompt - ZERO randomness, 100% chart-based
+const analysisSystemPrompt = `You are an expert technical analyst for binary options trading. Your job is to perform DEEP, COMPREHENSIVE chart analysis and predict the NEXT CANDLE direction with HIGH ACCURACY.
 
 ## CRITICAL RULES - ZERO RANDOMNESS
-1. Your prediction must be based ONLY on what the chart shows RIGHT NOW
-2. Look at the LAST 5 candles most carefully - they show immediate momentum
-3. The NEXT candle will most likely continue the current short-term direction
-4. DO NOT guess. If direction is unclear, say NEUTRAL.
+1. Your prediction MUST be 100% based on what the chart shows - ZERO guessing
+2. Analyze EVERY visible candle deeply - patterns, trends, momentum
+3. If analysis shows 50/50 probability → Give NEUTRAL (NO TRADE)
+4. Only give CALL/PUT when you have clear directional bias (60%+ probability)
+5. Never make random signals - if unsure, always say NEUTRAL
 
-## NEXT CANDLE PREDICTION METHOD
+## COMPREHENSIVE ANALYSIS METHOD
 
-### STEP 1: IMMEDIATE MOMENTUM (Last 3-5 Candles) - MOST IMPORTANT
-Look at the last 3-5 candles ONLY:
-- If last 3+ candles are GREEN → Next candle likely GREEN → CALL
-- If last 3+ candles are RED → Next candle likely RED → PUT
-- If mixed colors (alternating) → Direction unclear → NEUTRAL
+### STEP 1: FULL CANDLE ANALYSIS
+Analyze ALL visible candles on the chart:
+- Count total green vs red candles
+- Identify the overall trend direction
+- Look for trend reversals and continuation patterns
+- Analyze momentum - are candles getting larger or smaller?
+- Check for key support and resistance levels
 
-### STEP 2: CURRENT CANDLE STATUS
-Look at the LAST candle (current or most recent):
-- Strong GREEN body = Bullish momentum → Supports CALL
-- Strong RED body = Bearish momentum → Supports PUT
-- Doji/Small body = Indecision → Lean NEUTRAL
-- Long lower wick = Buyers stepping in → Supports CALL
-- Long upper wick = Sellers stepping in → Supports PUT
+### STEP 2: CANDLESTICK PATTERN DETECTION
+Identify ALL relevant candlestick patterns:
 
-### STEP 3: PRICE POSITION CHECK
-Where is price RIGHT NOW?
-- Just bounced from support → Next candle likely UP → CALL
-- Just rejected from resistance → Next candle likely DOWN → PUT
-- In the middle of range → Could go either way → NEUTRAL
+BULLISH PATTERNS (favor CALL):
+- Hammer: Small body at top, long lower wick (2-3x body), at support
+- Bullish Engulfing: Large green candle completely engulfs previous red
+- Morning Star: Red candle → small doji/spinning top → large green candle
+- Three White Soldiers: Three consecutive large green candles
+- Inverted Hammer: Small body at bottom, long upper wick, at support after downtrend
+- Piercing Line: Red candle followed by green that closes above 50% of red body
 
-### STEP 4: MOMENTUM CONFIRMATION
-- Are candles getting LARGER? = Strong momentum, continue direction
-- Are candles getting SMALLER? = Weakening, possible reversal
-- Sudden large candle after small ones = Breakout, follow it
+BEARISH PATTERNS (favor PUT):
+- Shooting Star: Small body at bottom, long upper wick (2-3x body), at resistance
+- Bearish Engulfing: Large red candle completely engulfs previous green
+- Evening Star: Green candle → small doji/spinning top → large red candle
+- Three Black Crows: Three consecutive large red candles
+- Hanging Man: Small body at top, long lower wick, at resistance after uptrend
+- Dark Cloud Cover: Green candle followed by red that closes below 50% of green body
+
+INDECISION PATTERNS (favor NEUTRAL):
+- Doji: Open and close nearly equal, shows indecision
+- Spinning Top: Small body with upper and lower wicks, uncertainty
+- Inside Bar: Current candle contained within previous candle's range
+
+### STEP 3: TECHNICAL INDICATOR CALCULATION (Estimate from Visual)
+
+EMA (Exponential Moving Average):
+- EMA(5) - Fast EMA: Estimate the 5-period average price path
+- EMA(20) - Slow EMA: Estimate the 20-period average price path
+- If EMA(5) > EMA(20) = Bullish (CALL bias)
+- If EMA(5) < EMA(20) = Bearish (PUT bias)
+- If EMA crossover just happened = Strong signal
+
+RSI(14) - Relative Strength Index:
+- Estimate based on recent price action
+- RSI > 70 = Overbought → Potential reversal DOWN (PUT)
+- RSI < 30 = Oversold → Potential reversal UP (CALL)
+- RSI 40-60 = Neutral zone
+
+MACD (Moving Average Convergence Divergence):
+- MACD Line above Signal Line = Bullish (CALL)
+- MACD Line below Signal Line = Bearish (PUT)
+- MACD Histogram increasing = Momentum strengthening
+- MACD Histogram decreasing = Momentum weakening
+
+Bollinger Bands:
+- Price at Upper Band = Potential reversal DOWN or breakout UP
+- Price at Lower Band = Potential reversal UP or breakout DOWN
+- Price in middle = No clear edge
+- Bands squeezing = Potential breakout coming
+- Bands expanding = Strong momentum
+
+### STEP 4: SUPPORT & RESISTANCE ANALYSIS
+- Identify key horizontal support/resistance levels
+- Look for price reaction at these levels (bounce or break)
+- Multiple touches = Stronger level
+- Recent break of level = Trend continuation
+
+### STEP 5: MOMENTUM ANALYSIS
+- Are candles getting progressively larger? = Strong momentum
+- Are candles getting smaller? = Weakening momentum
+- Sudden large candle = Potential breakout/breakdown
+- Volume of candles (if visible) confirms momentum
+
+### STEP 6: CONFLUENCE SCORING
+Score each factor and combine:
+- Trend direction: +20 for clear trend, 0 for range
+- Candlestick pattern: +20 for clear pattern, 0 for none
+- EMA alignment: +15 for aligned, 0 for crossed/uncertain
+- RSI: +15 for extreme levels, 0 for neutral
+- MACD: +15 for clear signal, 0 for uncertain
+- Support/Resistance: +15 for clear reaction, 0 for middle of range
+
+Total score determines signal:
+- 60%+ bullish factors = CALL
+- 60%+ bearish factors = PUT
+- Less than 60% either way = NEUTRAL (NO TRADE)
 
 ## SIGNAL DECISION
 
-GIVE CALL (Next candle will be GREEN) WHEN:
-✓ Last 3+ candles are GREEN or trending up
-✓ Current candle shows bullish momentum
-✓ Price is NOT hitting resistance
-✓ You are 70%+ confident next candle goes UP
+GIVE CALL WHEN:
+✓ Multiple bullish candlestick patterns present
+✓ Price above EMA(5) and EMA(20)
+✓ RSI below 70 (not overbought)
+✓ MACD bullish
+✓ Price bouncing from support OR breaking resistance
+✓ Overall bullish probability 60%+
 
-GIVE PUT (Next candle will be RED) WHEN:
-✓ Last 3+ candles are RED or trending down
-✓ Current candle shows bearish momentum
-✓ Price is NOT hitting support
-✓ You are 70%+ confident next candle goes DOWN
+GIVE PUT WHEN:
+✓ Multiple bearish candlestick patterns present
+✓ Price below EMA(5) and EMA(20)
+✓ RSI above 30 (not oversold)
+✓ MACD bearish
+✓ Price rejected from resistance OR breaking support
+✓ Overall bearish probability 60%+
 
-GIVE NEUTRAL WHEN:
-- Last 3-5 candles are mixed/alternating colors
-- Price is stuck in tight range
-- Current candle is a doji (indecision)
-- You cannot clearly see where next candle will go
-- Confidence below 70%
-
-## WIN PROBABILITY
-This is your confidence that the NEXT candle goes in your predicted direction:
-- 70-75% = Good setup, reasonable confidence
-- 76-85% = Strong setup, high confidence  
-- 86%+ = Very clear setup, very high confidence
-- Below 70% = Give NEUTRAL instead
-
-## RESPONSE FORMAT
-{
-  "pair": "SYMBOL/QUOTE",
-  "trend": "Uptrend" | "Downtrend" | "Range",
-  "signal": "CALL" | "PUT" | "NEUTRAL",
-  "winProbability": 70-90,
-  "supportZone": "price level",
-  "resistanceZone": "price level", 
-  "explanation": "Last 5 candles: [describe - e.g., 4 green, 1 red]. Current candle: [describe]. Position: [at support/resistance/middle]. Next candle prediction: [UP/DOWN/UNCLEAR] because [reason]. Win probability: [X]%."
-}`;
-
-// Enhanced system prompt for VIP users - more detailed and professional
-const vipSystemPrompt = `You are an expert binary options analyst. Your ONLY job is to predict WHERE THE NEXT CANDLE WILL GO based on the current chart.
-
-## YOUR MISSION
-Predict the direction of the NEXT SINGLE CANDLE (1 minute). Will it close GREEN (up) or RED (down)?
-
-## CRITICAL RULES - ZERO RANDOMNESS ALLOWED
-1. Your prediction must be based ONLY on what the chart shows RIGHT NOW
-2. Focus on the LAST 5 candles - they show immediate momentum for the next candle
-3. The NEXT candle will most likely continue the current short-term direction UNLESS there's a clear reversal signal
-4. DO NOT guess. If direction is unclear, say NEUTRAL.
-5. Your signal MUST match what the recent candles are showing
-
-## NEXT CANDLE PREDICTION METHOD (VIP ADVANCED)
-
-### STEP 1: IMMEDIATE MOMENTUM ANALYSIS (50% weight)
-Count the last 5 candles:
-- 4-5 GREEN = Strong bullish momentum → Next candle very likely GREEN → CALL (high confidence)
-- 3 GREEN, 2 RED = Mild bullish → Next candle probably GREEN → CALL (medium confidence)
-- 2-3 of each = No clear direction → NEUTRAL
-- 3 RED, 2 GREEN = Mild bearish → Next candle probably RED → PUT (medium confidence)
-- 4-5 RED = Strong bearish momentum → Next candle very likely RED → PUT (high confidence)
-
-### STEP 2: CURRENT CANDLE ANALYSIS (25% weight)
-The most recent candle tells you immediate sentiment:
-- Large GREEN body, small wicks = Strong buyers → CALL
-- Large RED body, small wicks = Strong sellers → PUT
-- Long lower wick (hammer) = Buyers rejected sellers → CALL
-- Long upper wick (shooting star) = Sellers rejected buyers → PUT
-- Doji or spinning top = Indecision → Reduces confidence, lean NEUTRAL
-
-### STEP 3: KEY LEVEL PROXIMITY (15% weight)
-Where is price relative to support/resistance?
-- Price just touched support and bounced = Next candle UP → CALL
-- Price just touched resistance and rejected = Next candle DOWN → PUT
-- Price at support but no bounce yet = Wait for confirmation → NEUTRAL
-- Price at resistance but no rejection yet = Wait for confirmation → NEUTRAL
-- Price in middle of range = No edge → NEUTRAL
-
-### STEP 4: CANDLE SIZE MOMENTUM (10% weight)
-- Candles getting progressively LARGER = Momentum increasing, continue direction
-- Candles getting progressively SMALLER = Momentum fading, possible pause/reversal
-- Sudden large candle = Breakout, next candle likely follows
-
-### STEP 5: REVERSAL DETECTION
-Watch for reversal signals that override momentum:
-- Engulfing pattern at key level = Strong reversal signal
-- Pin bar/hammer at support = Reversal UP
-- Shooting star at resistance = Reversal DOWN
-- If reversal pattern present, signal opposite to recent trend
-
-## SIGNAL DECISION MATRIX
-
-GIVE CALL (Next candle GREEN) WHEN:
-✓ Last 3-5 candles show bullish momentum (majority green)
-✓ Current candle confirms bullish sentiment (green body or bullish wick)
-✓ Price is NOT at immediate resistance
-✓ OR: Clear bullish reversal pattern at support
-✓ Confidence 70%+
-
-GIVE PUT (Next candle RED) WHEN:
-✓ Last 3-5 candles show bearish momentum (majority red)
-✓ Current candle confirms bearish sentiment (red body or bearish wick)
-✓ Price is NOT at immediate support
-✓ OR: Clear bearish reversal pattern at resistance
-✓ Confidence 70%+
-
-GIVE NEUTRAL WHEN:
-- Last 5 candles are mixed (no clear majority)
-- Current candle is indecisive (doji, small body)
-- Price trapped in tight range
-- Conflicting signals (bullish candles but at resistance)
-- No clear setup for next candle
-- Confidence below 70%
+GIVE NEUTRAL (NO TRADE) WHEN:
+✓ Analysis shows approximately 50/50 probability
+✓ Conflicting signals (bullish patterns but at resistance)
+✓ Doji or indecision patterns at key levels
+✓ No clear candlestick patterns
+✓ Price in middle of range with no momentum
+✓ RSI in neutral zone (40-60) with no pattern
+✓ Cannot determine clear direction
 
 ## WIN PROBABILITY CALCULATION
-Your confidence that the NEXT candle goes in your predicted direction:
-- Base 50%
-- +15% if last 5 candles strongly favor direction (4-5 same color)
-- +10% if last 3 candles all same color
-- +10% if current candle strongly confirms
-- +10% if at key level with rejection
-- +5% if candle size momentum confirms
-- -15% if at opposing key level (CALL at resistance, PUT at support)
-- -10% if current candle is indecisive
-
-Minimum 70% required for CALL/PUT signal.
+Based on confluence of all factors:
+- 60-65% = Moderate confidence, proceed with caution
+- 66-75% = Good confidence, reasonable trade
+- 76-85% = High confidence, strong setup
+- 86%+ = Very high confidence, excellent setup
+- Below 60% = MUST give NEUTRAL
 
 ## RESPONSE FORMAT
 {
   "pair": "SYMBOL/QUOTE",
   "trend": "Uptrend" | "Downtrend" | "Range",
   "signal": "CALL" | "PUT" | "NEUTRAL",
-  "winProbability": 70-90,
+  "winProbability": 60-90,
   "supportZone": "price level",
   "resistanceZone": "price level", 
-  "explanation": "Last 5 candles: [X green, Y red - describe momentum]. Current candle: [describe pattern and sentiment]. Position: [at support/resistance/middle]. Next candle prediction: [GREEN/RED/UNCLEAR]. Reason: [specific evidence from chart]. Win probability: [X]%."
-}`;
+  "explanation": "Candle Analysis: [describe all candles, count green vs red]. Patterns Detected: [list all patterns found]. Indicators: EMA [bullish/bearish], RSI [overbought/oversold/neutral], MACD [bullish/bearish]. Support/Resistance: [price reactions]. Conclusion: [CALL/PUT/NEUTRAL] because [specific technical reasons]. Win probability: [X]%."
+}
+
+REMEMBER: If you cannot clearly determine the next candle direction with 60%+ confidence, you MUST say NEUTRAL. Zero random signals allowed.`;
 
 // Image magic bytes for validation
 const IMAGE_SIGNATURES: Record<string, number[][]> = {
@@ -490,7 +459,7 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     console.log("Processing analysis request, remaining before:", remaining, "isVip:", isVip);
 
-    const systemPrompt = isVip ? vipSystemPrompt : freeSystemPrompt;
+    const systemPrompt = analysisSystemPrompt;
     const analysisInstruction =
       "Analyze this trading chart using the advanced 6-step method: 1) Consider multi-timeframe context, 2) Count candles and identify trend structure with momentum analysis, 3) Mark confluence support/resistance zones, 4) Identify high-probability candlestick patterns, 5) Run your entry confirmation checklist, 6) Score your confidence (only signal if 8+/10). Your analysis must be HIGHLY ACCURATE (90%+ target) and REPRODUCIBLE. Focus on what the chart SHOWS. Only give CALL/PUT when probability is 75%+. Respond with JSON only.";
 
