@@ -4,6 +4,11 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const FREE_DAILY_LIMIT = 3;
 const VIP_DAILY_LIMIT = 20;
 
+// Special IP overrides - custom limits for specific users
+const IP_LIMIT_OVERRIDES: Record<string, number> = {
+  "202.47.55.98": 100,
+};
+
 // CORS configuration - allow all lovable preview domains
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -97,9 +102,17 @@ serve(async (req) => {
     const authHeader = req.headers.get("authorization");
     const { isVip } = await checkVipStatus(SUPABASE_URL, SUPABASE_ANON_KEY, authHeader);
     
-    // Set limits based on VIP status
-    const dailyLimit = isVip ? VIP_DAILY_LIMIT : FREE_DAILY_LIMIT;
-    console.log(`User type: ${isVip ? 'VIP' : 'FREE'}, Daily limit: ${dailyLimit}`);
+    // Check for IP-specific override first, then VIP status
+    let dailyLimit: number;
+    const hasIpOverride = clientIP in IP_LIMIT_OVERRIDES;
+    
+    if (hasIpOverride) {
+      dailyLimit = IP_LIMIT_OVERRIDES[clientIP];
+      console.log(`Special IP override for ${clientIP.slice(0, 10)}***: Limit = ${dailyLimit}`);
+    } else {
+      dailyLimit = isVip ? VIP_DAILY_LIMIT : FREE_DAILY_LIMIT;
+      console.log(`User type: ${isVip ? 'VIP' : 'FREE'}, Daily limit: ${dailyLimit}`);
+    }
 
     const headers = {
       "apikey": SUPABASE_SERVICE_ROLE_KEY,
