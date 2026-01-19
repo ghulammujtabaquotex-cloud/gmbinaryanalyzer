@@ -469,18 +469,18 @@ serve(async (req) => {
       );
     }
 
-    const VERCEL_API_KEY = Deno.env.get("VERCEL_API_KEY");
+    const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
     console.log("Processing analysis request, remaining before:", remaining, "isVip:", isVip);
 
     const systemPrompt = analysisSystemPrompt;
     const analysisInstruction =
       "Analyze this trading chart using the advanced 6-step method: 1) Consider multi-timeframe context, 2) Count candles and identify trend structure with momentum analysis, 3) Mark confluence support/resistance zones, 4) Identify high-probability candlestick patterns, 5) Run your entry confirmation checklist, 6) Score your confidence (only signal if 8+/10). Your analysis must be HIGHLY ACCURATE (90%+ target) and REPRODUCIBLE. Focus on what the chart SHOWS. Only give CALL/PUT when probability is 75%+. Respond with JSON only.";
 
-    // Use Vercel AI API
-    console.log(`Using Vercel AI for ${isVip ? "VIP" : "FREE"} user`);
+    // Use OpenRouter API
+    console.log(`Using OpenRouter for ${isVip ? "VIP" : "FREE"} user`);
 
-    if (!VERCEL_API_KEY) {
-      console.error("ERR_CONFIG: VERCEL_API_KEY not configured");
+    if (!OPENROUTER_API_KEY) {
+      console.error("ERR_CONFIG: OPENROUTER_API_KEY not configured");
       return new Response(
         JSON.stringify({
           error: "⚠️ Analysis unavailable\n\nPlease try again later.",
@@ -497,19 +497,21 @@ serve(async (req) => {
     let contentText: string | undefined;
 
     try {
-      console.log("Calling Vercel AI...");
+      console.log("Calling OpenRouter API...");
       
-      const vercelResponse = await fetch(
-        "https://api.vercel.ai/v1/chat/completions",
+      const openRouterResponse = await fetch(
+        "https://openrouter.ai/api/v1/chat/completions",
         {
           method: "POST",
           signal: controller.signal,
           headers: {
             "Content-Type": "application/json",
-            "Authorization": `Bearer ${VERCEL_API_KEY}`,
+            "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+            "HTTP-Referer": "https://gmbinarypro.lovable.app",
+            "X-Title": "GM Binary Pro",
           },
           body: JSON.stringify({
-            model: "google/gemini-2.5-flash",
+            model: "google/gemini-2.0-flash-exp:free",
             messages: [
               { role: "system", content: systemPrompt },
               {
@@ -526,9 +528,9 @@ serve(async (req) => {
 
       clearTimeout(timeoutId);
 
-      if (!vercelResponse.ok) {
-        const errText = await vercelResponse.text().catch(() => "");
-        console.error("Vercel AI error:", vercelResponse.status, errText);
+      if (!openRouterResponse.ok) {
+        const errText = await openRouterResponse.text().catch(() => "");
+        console.error("OpenRouter error:", openRouterResponse.status, errText);
         return new Response(
           JSON.stringify({
             error: "⚠️ Analysis busy\n\nPlease try again in a moment.",
@@ -538,12 +540,12 @@ serve(async (req) => {
         );
       }
 
-      const aiData = await vercelResponse.json().catch(() => ({} as any));
+      const aiData = await openRouterResponse.json().catch(() => ({} as any));
       contentText = aiData?.choices?.[0]?.message?.content;
-      console.log("Vercel AI response received successfully");
+      console.log("OpenRouter response received successfully");
     } catch (err) {
       clearTimeout(timeoutId);
-      console.error("Vercel AI request error:", err);
+      console.error("OpenRouter request error:", err);
       return new Response(
         JSON.stringify({
           error: "⚠️ Analysis unavailable\n\nPlease try again in a moment.",
@@ -553,7 +555,7 @@ serve(async (req) => {
       );
     }
 
-    console.log("Analysis completed using: Vercel AI");
+    console.log("Analysis completed using: OpenRouter");
 
     if (!contentText) {
       console.error("ERR_EMPTY_RESPONSE: AI returned no content");
