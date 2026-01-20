@@ -49,6 +49,7 @@ export type Database = {
           id: string
           pair: string
           signal_time: string
+          telegram_sent: boolean | null
         }
         Insert: {
           confidence?: number | null
@@ -57,6 +58,7 @@ export type Database = {
           id?: string
           pair: string
           signal_time: string
+          telegram_sent?: boolean | null
         }
         Update: {
           confidence?: number | null
@@ -65,6 +67,7 @@ export type Database = {
           id?: string
           pair?: string
           signal_time?: string
+          telegram_sent?: boolean | null
         }
         Relationships: []
       }
