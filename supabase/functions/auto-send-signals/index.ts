@@ -42,6 +42,27 @@ serve(async (req) => {
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
+    // Check if telegram auto-send is enabled
+    const { data: settingData, error: settingError } = await supabase
+      .from("app_settings")
+      .select("value")
+      .eq("id", "telegram_auto_send")
+      .maybeSingle();
+
+    if (settingError) {
+      console.error("Error fetching telegram setting:", settingError);
+    }
+
+    const telegramEnabled = settingData?.value?.enabled !== false;
+    
+    if (!telegramEnabled) {
+      console.log("Telegram auto-send is disabled");
+      return new Response(
+        JSON.stringify({ message: "Telegram auto-send is disabled" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // Get current Pakistan time (UTC+5)
     const now = new Date();
     const pakistanOffset = 5 * 60 * 60 * 1000;
@@ -92,35 +113,56 @@ serve(async (req) => {
 
     console.log(`Found ${signals.length} signals to send`);
 
-    // Format signals for Telegram
-    const signalLines = signals.map((s: Signal) => 
-      `📊 ${s.pair} | ⏰ ${s.signal_time} | ${s.direction === 'CALL' ? '🟢 CALL' : '🔴 PUT'}`
-    ).join('\n');
+    // Format signals for Telegram - one message per signal
+    const messages = signals.map((s: Signal) => {
+      const formattedPair = s.pair.replace(/([A-Z]{3})([A-Z]{3})/, '$1/$2');
+      const directionEmoji = s.direction === 'CALL' ? '🟢' : '🔴';
+      const directionText = s.direction === 'CALL' ? 'UP' : 'DOWN';
+      
+      return `𒆜•——‼️ G╎M╎x╎B╎o╎t‼️——•𒆜
 
-    const message = `🚨 *UPCOMING SIGNALS - 2 MIN ALERT* 🚨\n\n${signalLines}\n\n⏱️ *Get Ready!* Signals starting in 2 minutes\n📍 Pakistan Time: ${currentTimeStr}`;
+📊 PAIR: "${formattedPair}" (QUOTEX) 
 
-    // Send to Telegram
-    const telegramUrl = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
-    const telegramResponse = await fetch(telegramUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        chat_id: TELEGRAM_CHAT_ID,
-        text: message,
-        parse_mode: "Markdown",
-      }),
+✔️ ENTRY TIME: ${s.signal_time} (+5 UTC) 🇵🇰
+
+⏳ Time: M 1
+
+🚨 TRADE DIRECTION: ${directionText} ${directionEmoji}
+
+🦅 1 STEP MTG
+
+⚡️ TRY TO USE SAFETY MARGIN 👍
+
+𒆜•———‼️ D  ╎R╎A╎C╎O ‼️———•𒆜`;
     });
 
-    if (!telegramResponse.ok) {
-      const errText = await telegramResponse.text();
-      console.error("Telegram API error:", errText);
-      return new Response(
-        JSON.stringify({ error: "Failed to send Telegram message" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    // Send each signal as a separate message to Telegram
+    const telegramUrl = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
+    
+    for (const message of messages) {
+      const telegramResponse = await fetch(telegramUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chat_id: TELEGRAM_CHAT_ID,
+          text: message,
+        }),
+      });
+
+      if (!telegramResponse.ok) {
+        const errText = await telegramResponse.text();
+        console.error("Telegram API error:", errText);
+        return new Response(
+          JSON.stringify({ error: "Failed to send Telegram message" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      
+      // Small delay between messages to avoid rate limiting
+      await new Promise(resolve => setTimeout(resolve, 100));
     }
 
-    console.log("Telegram message sent successfully");
+    console.log(`Sent ${messages.length} Telegram messages successfully`);
 
     // Mark signals as sent
     const signalIds = signals.map((s: Signal) => s.id);
