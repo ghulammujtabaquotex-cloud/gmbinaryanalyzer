@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Loader2, Crown, RefreshCw, Send, Zap } from 'lucide-react';
+import { ArrowLeft, Loader2, Crown, Send, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Switch } from '@/components/ui/switch';
+import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useAdmin } from '@/hooks/useAdmin';
@@ -13,24 +15,70 @@ const Admin = () => {
   const navigate = useNavigate();
   const { user, isLoading: authLoading } = useAuth();
   const { isAdmin, isLoading: adminLoading } = useAdmin();
-  const [isTelegramTesting, setIsTelegramTesting] = useState(false);
+  const [telegramEnabled, setTelegramEnabled] = useState(true);
+  const [telegramLoading, setTelegramLoading] = useState(false);
+  const [chatId, setChatId] = useState('');
+  const [chatIdLoading, setChatIdLoading] = useState(false);
 
-  const handleTelegramTest = async () => {
-    setIsTelegramTesting(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("telegram-test");
-      if (error) throw error;
-      if (data?.success) {
-        toast.success("Telegram test message sent successfully!");
-      } else {
-        throw new Error(data?.error || "Failed to send test message");
+  // Fetch telegram settings on mount
+  useEffect(() => {
+    const fetchSettings = async () => {
+      const { data, error } = await supabase
+        .from('app_settings')
+        .select('value')
+        .eq('id', 'telegram_auto_send')
+        .maybeSingle();
+      
+      if (!error && data) {
+        const value = data.value as { enabled?: boolean; chat_id?: string };
+        setTelegramEnabled(value?.enabled !== false);
+        setChatId(value?.chat_id || '');
       }
+    };
+    fetchSettings();
+  }, []);
+
+  const toggleTelegram = async () => {
+    setTelegramLoading(true);
+    try {
+      const newValue = !telegramEnabled;
+      const { error } = await supabase
+        .from('app_settings')
+        .upsert({ 
+          id: 'telegram_auto_send', 
+          value: { enabled: newValue, chat_id: chatId || undefined },
+          updated_at: new Date().toISOString()
+        });
+      
+      if (error) throw error;
+      
+      setTelegramEnabled(newValue);
+      toast.success(`Telegram auto-send ${newValue ? 'enabled' : 'disabled'}`);
     } catch (err) {
-      console.error("Telegram test error:", err);
-      toast.error("Failed to send Telegram test message");
-    } finally {
-      setIsTelegramTesting(false);
+      console.error(err);
+      toast.error('Failed to update setting');
     }
+    setTelegramLoading(false);
+  };
+
+  const saveChatId = async () => {
+    setChatIdLoading(true);
+    try {
+      const { error } = await supabase
+        .from('app_settings')
+        .upsert({ 
+          id: 'telegram_auto_send', 
+          value: { enabled: telegramEnabled, chat_id: chatId || undefined },
+          updated_at: new Date().toISOString()
+        });
+      
+      if (error) throw error;
+      toast.success('Chat ID saved successfully!');
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to save Chat ID');
+    }
+    setChatIdLoading(false);
   };
 
   // Loading states
@@ -97,28 +145,57 @@ const Admin = () => {
       </header>
 
       <main className="container mx-auto px-4 py-8 max-w-4xl">
-        {/* Telegram Test Button */}
-        <div className="flex justify-end mb-6">
-          <Button
-            onClick={handleTelegramTest}
-            disabled={isTelegramTesting}
-            variant="outline"
-            size="sm"
-            className="border-cyan-500/50 text-cyan-500 hover:bg-cyan-500/10"
-          >
-            {isTelegramTesting ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Sending...
-              </>
-            ) : (
-              <>
-                <Send className="w-4 h-4 mr-2" />
-                Test Telegram
-              </>
-            )}
-          </Button>
-        </div>
+        {/* Telegram Settings */}
+        <Card className="mb-6 bg-card/50 border-cyan-500/30">
+          <CardContent className="p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Send className="w-5 h-5 text-cyan-400" />
+              <h2 className="text-lg font-bold text-foreground">Telegram Settings</h2>
+            </div>
+            
+            <div className="space-y-4">
+              {/* Toggle */}
+              <div className="flex items-center justify-between bg-background/50 rounded-lg px-4 py-3">
+                <div className="flex items-center gap-3">
+                  <Send className={`h-5 w-5 ${telegramEnabled ? 'text-cyan-400' : 'text-muted-foreground'}`} />
+                  <span className="text-foreground">Auto-Send Signals</span>
+                </div>
+                <Switch
+                  checked={telegramEnabled}
+                  onCheckedChange={toggleTelegram}
+                  disabled={telegramLoading}
+                  className="data-[state=checked]:bg-cyan-500"
+                />
+              </div>
+
+              {/* Chat ID */}
+              <div className="bg-background/50 rounded-lg px-4 py-3">
+                <label className="block text-sm font-medium text-muted-foreground mb-2">
+                  Telegram Chat ID
+                </label>
+                <div className="flex gap-2">
+                  <Input
+                    value={chatId}
+                    onChange={(e) => setChatId(e.target.value)}
+                    placeholder="Enter channel/group chat ID"
+                    className="flex-1 bg-background"
+                  />
+                  <Button
+                    onClick={saveChatId}
+                    disabled={chatIdLoading}
+                    variant="outline"
+                    className="border-cyan-500/50 text-cyan-500 hover:bg-cyan-500/10"
+                  >
+                    {chatIdLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Save'}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Leave empty to use default channel. Format: -1001234567890
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Future Signals Section */}
         <div className="space-y-6">

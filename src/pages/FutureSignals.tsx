@@ -1,8 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Copy, Zap, Globe, Check, Crown, Send } from 'lucide-react';
+import { ArrowLeft, Copy, Zap, Globe, Check, Crown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Switch } from '@/components/ui/switch';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useAdmin } from '@/hooks/useAdmin';
@@ -34,8 +33,6 @@ const FutureSignals = () => {
   const [globalCount, setGlobalCount] = useState(0);
   const [copied, setCopied] = useState(false);
   const [usageInfo, setUsageInfo] = useState({ used: 0, limit: 20, isVip: false, isLoading: true });
-  const [telegramEnabled, setTelegramEnabled] = useState(true);
-  const [telegramLoading, setTelegramLoading] = useState(false);
   const VIP_SIGNAL_LIMIT = 20;
   const terminalRef = useRef<HTMLDivElement>(null);
 
@@ -95,21 +92,6 @@ const FutureSignals = () => {
     };
   }, []);
 
-  // Fetch telegram setting
-  useEffect(() => {
-    const fetchTelegramSetting = async () => {
-      const { data, error } = await supabase
-        .from('app_settings')
-        .select('value')
-        .eq('id', 'telegram_auto_send')
-        .maybeSingle();
-      
-      if (!error && data) {
-        setTelegramEnabled((data.value as { enabled: boolean })?.enabled !== false);
-      }
-    };
-    fetchTelegramSetting();
-  }, []);
 
   // Check VIP status on mount
   useEffect(() => {
@@ -179,28 +161,6 @@ const FutureSignals = () => {
     setLogs((prev) => [...prev, text]);
   };
 
-  const toggleTelegram = async () => {
-    setTelegramLoading(true);
-    try {
-      const newValue = !telegramEnabled;
-      const { error } = await supabase
-        .from('app_settings')
-        .upsert({ 
-          id: 'telegram_auto_send', 
-          value: { enabled: newValue },
-          updated_at: new Date().toISOString()
-        });
-      
-      if (error) throw error;
-      
-      setTelegramEnabled(newValue);
-      toast.success(`Telegram auto-send ${newValue ? 'enabled' : 'disabled'}`);
-    } catch (err) {
-      console.error(err);
-      toast.error('Failed to update setting');
-    }
-    setTelegramLoading(false);
-  };
 
   const timeToMinutes = (time: string): number => {
     const [hours, minutes] = time.split(':').map(Number);
@@ -447,19 +407,6 @@ const FutureSignals = () => {
           Timezone: Asia/Karachi (UTC+5)
         </p>
         
-        {/* Telegram Toggle - Admin Only */}
-        {isAdmin && (
-          <div className="mt-4 flex items-center justify-center gap-3 bg-[#1a1a1a] border border-[#33ff33]/30 rounded-lg px-4 py-3 max-w-xs mx-auto">
-            <Send className={`h-5 w-5 ${telegramEnabled ? 'text-cyan-400' : 'text-gray-500'}`} />
-            <span className="text-gray-300 text-sm">Telegram Auto-Send</span>
-            <Switch
-              checked={telegramEnabled}
-              onCheckedChange={toggleTelegram}
-              disabled={telegramLoading}
-              className="data-[state=checked]:bg-cyan-500"
-            />
-          </div>
-        )}
       </div>
 
       {/* Terminal Window */}
