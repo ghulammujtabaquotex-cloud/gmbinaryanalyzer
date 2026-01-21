@@ -20,7 +20,7 @@ serve(async (req) => {
 
   try {
     const TELEGRAM_BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN");
-    const TELEGRAM_CHAT_ID = Deno.env.get("TELEGRAM_CHAT_ID");
+    let TELEGRAM_CHAT_ID = Deno.env.get("TELEGRAM_CHAT_ID");
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
@@ -42,7 +42,7 @@ serve(async (req) => {
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // Check if telegram auto-send is enabled
+    // Check if telegram auto-send is enabled and get custom chat ID
     const { data: settingData, error: settingError } = await supabase
       .from("app_settings")
       .select("value")
@@ -54,6 +54,11 @@ serve(async (req) => {
     }
 
     const telegramEnabled = settingData?.value?.enabled !== false;
+    
+    // Use custom chat ID if provided
+    if (settingData?.value?.chat_id) {
+      TELEGRAM_CHAT_ID = settingData.value.chat_id;
+    }
     
     if (!telegramEnabled) {
       console.log("Telegram auto-send is disabled");
@@ -71,8 +76,8 @@ serve(async (req) => {
     const currentHours = pakistanTime.getUTCHours();
     const currentMinutes = pakistanTime.getUTCMinutes();
     
-    // Calculate time 2 minutes from now
-    let targetMinutes = currentMinutes + 2;
+    // Calculate time 3 minutes from now
+    let targetMinutes = currentMinutes + 3;
     let targetHours = currentHours;
     
     if (targetMinutes >= 60) {
@@ -133,7 +138,9 @@ serve(async (req) => {
 
 ⚡️ TRY TO USE SAFETY MARGIN 👍
 
-𒆜•———‼️ D  ╎R╎A╎C╎O ‼️———•𒆜`;
+𒆜•———‼️ D  ╎R╎A╎C╎O ‼️———•𒆜
+
+contact @binarysupport`;
     });
 
     // Send each signal as a separate message to Telegram
