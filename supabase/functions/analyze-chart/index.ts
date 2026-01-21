@@ -469,18 +469,18 @@ serve(async (req) => {
       );
     }
 
-    const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
+    const XAI_API_KEY = Deno.env.get("XAI_API_KEY");
     console.log("Processing analysis request, remaining before:", remaining, "isVip:", isVip);
 
     const systemPrompt = analysisSystemPrompt;
     const analysisInstruction =
       "Analyze this trading chart using the advanced 6-step method: 1) Consider multi-timeframe context, 2) Count candles and identify trend structure with momentum analysis, 3) Mark confluence support/resistance zones, 4) Identify high-probability candlestick patterns, 5) Run your entry confirmation checklist, 6) Score your confidence (only signal if 8+/10). Your analysis must be HIGHLY ACCURATE (90%+ target) and REPRODUCIBLE. Focus on what the chart SHOWS. Only give CALL/PUT when probability is 75%+. Respond with JSON only.";
 
-    // Use OpenRouter API
-    console.log(`Using OpenRouter for ${isVip ? "VIP" : "FREE"} user`);
+    // Use Grok API (xAI)
+    console.log(`Using Grok API for ${isVip ? "VIP" : "FREE"} user`);
 
-    if (!OPENROUTER_API_KEY) {
-      console.error("ERR_CONFIG: OPENROUTER_API_KEY not configured");
+    if (!XAI_API_KEY) {
+      console.error("ERR_CONFIG: XAI_API_KEY not configured");
       return new Response(
         JSON.stringify({
           error: "⚠️ Analysis unavailable\n\nPlease try again later.",
@@ -497,21 +497,19 @@ serve(async (req) => {
     let contentText: string | undefined;
 
     try {
-      console.log("Calling OpenRouter API...");
+      console.log("Calling Grok API...");
       
-      const openRouterResponse = await fetch(
-        "https://openrouter.ai/api/v1/chat/completions",
+      const grokResponse = await fetch(
+        "https://api.x.ai/v1/chat/completions",
         {
           method: "POST",
           signal: controller.signal,
           headers: {
             "Content-Type": "application/json",
-            "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
-            "HTTP-Referer": "https://gmbinarypro.lovable.app",
-            "X-Title": "GM Binary Pro",
+            "Authorization": `Bearer ${XAI_API_KEY}`,
           },
           body: JSON.stringify({
-            model: "google/gemini-2.0-flash-exp:free",
+            model: "grok-2-vision-latest",
             messages: [
               { role: "system", content: systemPrompt },
               {
@@ -528,9 +526,9 @@ serve(async (req) => {
 
       clearTimeout(timeoutId);
 
-      if (!openRouterResponse.ok) {
-        const errText = await openRouterResponse.text().catch(() => "");
-        console.error("OpenRouter error:", openRouterResponse.status, errText);
+      if (!grokResponse.ok) {
+        const errText = await grokResponse.text().catch(() => "");
+        console.error("Grok API error:", grokResponse.status, errText);
         return new Response(
           JSON.stringify({
             error: "⚠️ Analysis busy\n\nPlease try again in a moment.",
@@ -540,12 +538,12 @@ serve(async (req) => {
         );
       }
 
-      const aiData = await openRouterResponse.json().catch(() => ({} as any));
+      const aiData = await grokResponse.json().catch(() => ({} as any));
       contentText = aiData?.choices?.[0]?.message?.content;
-      console.log("OpenRouter response received successfully");
+      console.log("Grok API response received successfully");
     } catch (err) {
       clearTimeout(timeoutId);
-      console.error("OpenRouter request error:", err);
+      console.error("Grok API request error:", err);
       return new Response(
         JSON.stringify({
           error: "⚠️ Analysis unavailable\n\nPlease try again in a moment.",
@@ -555,7 +553,7 @@ serve(async (req) => {
       );
     }
 
-    console.log("Analysis completed using: OpenRouter");
+    console.log("Analysis completed using: Grok API");
 
     if (!contentText) {
       console.error("ERR_EMPTY_RESPONSE: AI returned no content");
