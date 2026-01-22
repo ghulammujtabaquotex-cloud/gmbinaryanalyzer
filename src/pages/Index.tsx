@@ -95,6 +95,16 @@ const Index = () => {
       const { data, error } = await Promise.race([invokePromise, timeoutPromise]);
 
       if (error) {
+        // If the function returned a non-2xx status, supabase-js throws a FunctionsHttpError
+        // with a Response in `context`. Extract the JSON to show the real error message.
+        const maybeContext = (error as any)?.context;
+        if (maybeContext instanceof Response) {
+          const body = await maybeContext.json().catch(() => null);
+          if (body?.error) {
+            throw new Error(body.error);
+          }
+        }
+
         throw error;
       }
 

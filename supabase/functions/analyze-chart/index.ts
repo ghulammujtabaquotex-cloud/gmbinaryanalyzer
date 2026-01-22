@@ -17,6 +17,10 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Critical safety rule: never generate signals when external AI is unavailable.
+const EXTERNAL_AI_UNAVAILABLE_MESSAGE =
+  "⚠️ Analysis unavailable - External AI API not responding. - No signal generated to avoid random trades.";
+
 
 // Comprehensive technical analysis prompt - ZERO randomness, 100% chart-based
 const analysisSystemPrompt = `You are an expert technical analyst for binary options trading. Your job is to perform DEEP, COMPREHENSIVE chart analysis and predict the NEXT CANDLE direction with HIGH ACCURACY.
@@ -483,10 +487,10 @@ serve(async (req) => {
       console.error("ERR_CONFIG: XAI_API_KEY not configured");
       return new Response(
         JSON.stringify({
-          error: "⚠️ Analysis unavailable\n\nPlease try again later.",
+          error: EXTERNAL_AI_UNAVAILABLE_MESSAGE,
           apiUnavailable: true,
         }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -531,10 +535,10 @@ serve(async (req) => {
         console.error("Grok API error:", grokResponse.status, errText);
         return new Response(
           JSON.stringify({
-            error: "⚠️ Analysis busy\n\nPlease try again in a moment.",
+            error: EXTERNAL_AI_UNAVAILABLE_MESSAGE,
             apiUnavailable: true,
           }),
-          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
@@ -546,10 +550,10 @@ serve(async (req) => {
       console.error("Grok API request error:", err);
       return new Response(
         JSON.stringify({
-          error: "⚠️ Analysis unavailable\n\nPlease try again in a moment.",
+          error: EXTERNAL_AI_UNAVAILABLE_MESSAGE,
           apiUnavailable: true,
         }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
