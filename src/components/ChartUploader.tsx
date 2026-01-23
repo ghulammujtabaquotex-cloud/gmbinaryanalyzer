@@ -8,9 +8,9 @@ interface ChartUploaderProps {
   disabled?: boolean;
 }
 
-// Compress image to stay under ~1 MB file size (base64 adds ~33%)
-const MAX_DIMENSION = 1400;
-const TARGET_SIZE_BYTES = 1 * 1024 * 1024; // 1 MB
+// Compress image aggressively for OpenRouter free tier token limits
+const MAX_DIMENSION = 800;
+const TARGET_SIZE_BYTES = 300 * 1024; // 300KB to stay under token limits
 
 async function compressImage(file: File): Promise<File> {
   return new Promise((resolve, reject) => {

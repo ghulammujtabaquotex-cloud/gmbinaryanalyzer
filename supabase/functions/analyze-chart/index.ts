@@ -516,12 +516,12 @@ serve(async (req) => {
           },
           body: JSON.stringify({
             model: "google/gemini-2.0-flash-exp:free",
+            max_tokens: 1024,
             messages: [
-              { role: "system", content: systemPrompt },
               {
                 role: "user",
                 content: [
-                  { type: "text", text: analysisInstruction },
+                  { type: "text", text: systemPrompt + "\n\n" + analysisInstruction },
                   { type: "image_url", image_url: { url: imageBase64 } },
                 ],
               },
