@@ -473,18 +473,18 @@ serve(async (req) => {
       );
     }
 
-    const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     console.log("Processing analysis request, remaining before:", remaining, "isVip:", isVip);
 
     const systemPrompt = analysisSystemPrompt;
     const analysisInstruction =
       "Analyze this trading chart using the advanced 6-step method: 1) Consider multi-timeframe context, 2) Count candles and identify trend structure with momentum analysis, 3) Mark confluence support/resistance zones, 4) Identify high-probability candlestick patterns, 5) Run your entry confirmation checklist, 6) Score your confidence (only signal if 8+/10). Your analysis must be HIGHLY ACCURATE (90%+ target) and REPRODUCIBLE. Focus on what the chart SHOWS. Only give CALL/PUT when probability is 75%+. Respond with JSON only.";
 
-    // Use OpenRouter API with free vision model
-    console.log(`Using OpenRouter API for ${isVip ? "VIP" : "FREE"} user`);
+    // Use Lovable AI Gateway with vision-capable model
+    console.log(`Using Lovable AI for ${isVip ? "VIP" : "FREE"} user`);
 
-    if (!OPENROUTER_API_KEY) {
-      console.error("ERR_CONFIG: OPENROUTER_API_KEY not configured");
+    if (!LOVABLE_API_KEY) {
+      console.error("ERR_CONFIG: LOVABLE_API_KEY not configured");
       return new Response(
         JSON.stringify({
           error: EXTERNAL_AI_UNAVAILABLE_MESSAGE,
@@ -501,21 +501,19 @@ serve(async (req) => {
     let contentText: string | undefined;
 
     try {
-      console.log("Calling OpenRouter API...");
+      console.log("Calling Lovable AI Gateway...");
       
-      const openRouterResponse = await fetch(
-        "https://openrouter.ai/api/v1/chat/completions",
+      const aiResponse = await fetch(
+        "https://ai.gateway.lovable.dev/v1/chat/completions",
         {
           method: "POST",
           signal: controller.signal,
           headers: {
             "Content-Type": "application/json",
-            "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
-            "HTTP-Referer": "https://gmbinarypro.lovable.app",
-            "X-Title": "GM Binary Pro Chart Analysis",
+            "Authorization": `Bearer ${LOVABLE_API_KEY}`,
           },
           body: JSON.stringify({
-            model: "google/gemini-2.0-flash-exp:free",
+            model: "google/gemini-2.5-flash",
             max_tokens: 1024,
             messages: [
               {
@@ -532,9 +530,29 @@ serve(async (req) => {
 
       clearTimeout(timeoutId);
 
-      if (!openRouterResponse.ok) {
-        const errText = await openRouterResponse.text().catch(() => "");
-        console.error("OpenRouter API error:", openRouterResponse.status, errText);
+      if (!aiResponse.ok) {
+        const errText = await aiResponse.text().catch(() => "");
+        console.error("Lovable AI error:", aiResponse.status, errText);
+        
+        if (aiResponse.status === 429) {
+          return new Response(
+            JSON.stringify({
+              error: "Rate limit exceeded. Please try again in a moment.",
+              rateLimited: true,
+            }),
+            { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        if (aiResponse.status === 402) {
+          return new Response(
+            JSON.stringify({
+              error: "AI service temporarily unavailable. Please try again later.",
+              apiUnavailable: true,
+            }),
+            { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        
         return new Response(
           JSON.stringify({
             error: EXTERNAL_AI_UNAVAILABLE_MESSAGE,
@@ -544,12 +562,12 @@ serve(async (req) => {
         );
       }
 
-      const aiData = await openRouterResponse.json().catch(() => ({} as any));
+      const aiData = await aiResponse.json().catch(() => ({} as any));
       contentText = aiData?.choices?.[0]?.message?.content;
-      console.log("OpenRouter API response received successfully");
+      console.log("Lovable AI response received successfully");
     } catch (err) {
       clearTimeout(timeoutId);
-      console.error("OpenRouter API request error:", err);
+      console.error("Lovable AI request error:", err);
       return new Response(
         JSON.stringify({
           error: EXTERNAL_AI_UNAVAILABLE_MESSAGE,
