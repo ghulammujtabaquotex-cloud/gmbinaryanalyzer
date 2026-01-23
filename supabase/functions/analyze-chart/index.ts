@@ -516,10 +516,6 @@ serve(async (req) => {
           },
           body: JSON.stringify({
             model: "google/gemini-2.0-flash-exp:free",
-            // IMPORTANT: OpenRouter may default to a very high max_tokens which can trigger 402
-            // (insufficient credits). We keep this small since we only need concise JSON.
-            max_tokens: 256,
-            temperature: 0.2,
             messages: [
               { role: "system", content: systemPrompt },
               {
