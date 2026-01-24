@@ -473,18 +473,18 @@ serve(async (req) => {
       );
     }
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const GOOGLE_AI_API_KEY = Deno.env.get("GOOGLE_AI_API_KEY");
     console.log("Processing analysis request, remaining before:", remaining, "isVip:", isVip);
 
     const systemPrompt = analysisSystemPrompt;
     const analysisInstruction =
       "Analyze this trading chart using the advanced 6-step method: 1) Consider multi-timeframe context, 2) Count candles and identify trend structure with momentum analysis, 3) Mark confluence support/resistance zones, 4) Identify high-probability candlestick patterns, 5) Run your entry confirmation checklist, 6) Score your confidence (only signal if 8+/10). Your analysis must be HIGHLY ACCURATE (90%+ target) and REPRODUCIBLE. Focus on what the chart SHOWS. Only give CALL/PUT when probability is 75%+. Respond with JSON only.";
 
-    // Use Lovable AI Gateway with vision-capable model
-    console.log(`Using Lovable AI for ${isVip ? "VIP" : "FREE"} user`);
+    // Use Google AI Studio (Gemini) API
+    console.log(`Using Google AI Studio for ${isVip ? "VIP" : "FREE"} user`);
 
-    if (!LOVABLE_API_KEY) {
-      console.error("ERR_CONFIG: LOVABLE_API_KEY not configured");
+    if (!GOOGLE_AI_API_KEY) {
+      console.error("ERR_CONFIG: GOOGLE_AI_API_KEY not configured");
       return new Response(
         JSON.stringify({
           error: EXTERNAL_AI_UNAVAILABLE_MESSAGE,
@@ -501,29 +501,43 @@ serve(async (req) => {
     let contentText: string | undefined;
 
     try {
-      console.log("Calling Lovable AI Gateway...");
+      console.log("Calling Google AI Studio API...");
       
+      // Extract base64 data and mime type from data URL
+      const base64Match = imageBase64.match(/^data:([^;]+);base64,(.+)$/);
+      if (!base64Match) {
+        throw new Error("Invalid image format");
+      }
+      const mimeType = base64Match[1];
+      const base64Data = base64Match[2];
+      
+      // Google AI Studio Gemini API format
       const aiResponse = await fetch(
-        "https://ai.gateway.lovable.dev/v1/chat/completions",
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GOOGLE_AI_API_KEY}`,
         {
           method: "POST",
           signal: controller.signal,
           headers: {
             "Content-Type": "application/json",
-            "Authorization": `Bearer ${LOVABLE_API_KEY}`,
           },
           body: JSON.stringify({
-            model: "google/gemini-2.5-flash",
-            max_tokens: 1024,
-            messages: [
+            contents: [
               {
-                role: "user",
-                content: [
-                  { type: "text", text: systemPrompt + "\n\n" + analysisInstruction },
-                  { type: "image_url", image_url: { url: imageBase64 } },
+                parts: [
+                  { text: systemPrompt + "\n\n" + analysisInstruction },
+                  {
+                    inline_data: {
+                      mime_type: mimeType,
+                      data: base64Data,
+                    },
+                  },
                 ],
               },
             ],
+            generationConfig: {
+              maxOutputTokens: 1024,
+              temperature: 0.1,
+            },
           }),
         }
       );
@@ -532,7 +546,7 @@ serve(async (req) => {
 
       if (!aiResponse.ok) {
         const errText = await aiResponse.text().catch(() => "");
-        console.error("Lovable AI error:", aiResponse.status, errText);
+        console.error("Google AI Studio error:", aiResponse.status, errText);
         
         if (aiResponse.status === 429) {
           return new Response(
@@ -543,13 +557,13 @@ serve(async (req) => {
             { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
-        if (aiResponse.status === 402) {
+        if (aiResponse.status === 403 || aiResponse.status === 401) {
           return new Response(
             JSON.stringify({
-              error: "AI service temporarily unavailable. Please try again later.",
+              error: "AI API key invalid or expired. Please check your API key.",
               apiUnavailable: true,
             }),
-            { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
         
@@ -563,11 +577,12 @@ serve(async (req) => {
       }
 
       const aiData = await aiResponse.json().catch(() => ({} as any));
-      contentText = aiData?.choices?.[0]?.message?.content;
-      console.log("Lovable AI response received successfully");
+      // Google AI Studio response format: candidates[0].content.parts[0].text
+      contentText = aiData?.candidates?.[0]?.content?.parts?.[0]?.text;
+      console.log("Google AI Studio response received successfully");
     } catch (err) {
       clearTimeout(timeoutId);
-      console.error("Lovable AI request error:", err);
+      console.error("Google AI Studio request error:", err);
       return new Response(
         JSON.stringify({
           error: EXTERNAL_AI_UNAVAILABLE_MESSAGE,
@@ -577,7 +592,7 @@ serve(async (req) => {
       );
     }
 
-    console.log("Analysis completed using: OpenRouter API");
+    console.log("Analysis completed using: Google AI Studio");
 
     if (!contentText) {
       console.error("ERR_EMPTY_RESPONSE: AI returned no content");
