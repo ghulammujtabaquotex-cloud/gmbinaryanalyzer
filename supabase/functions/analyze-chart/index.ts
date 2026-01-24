@@ -473,18 +473,18 @@ serve(async (req) => {
       );
     }
 
-    const GOOGLE_AI_API_KEY = Deno.env.get("GOOGLE_AI_API_KEY");
+    const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
     console.log("Processing analysis request, remaining before:", remaining, "isVip:", isVip);
 
     const systemPrompt = analysisSystemPrompt;
     const analysisInstruction =
       "Analyze this trading chart using the advanced 6-step method: 1) Consider multi-timeframe context, 2) Count candles and identify trend structure with momentum analysis, 3) Mark confluence support/resistance zones, 4) Identify high-probability candlestick patterns, 5) Run your entry confirmation checklist, 6) Score your confidence (only signal if 8+/10). Your analysis must be HIGHLY ACCURATE (90%+ target) and REPRODUCIBLE. Focus on what the chart SHOWS. Only give CALL/PUT when probability is 75%+. Respond with JSON only.";
 
-    // Use Google AI Studio (Gemini) API
-    console.log(`Using Google AI Studio for ${isVip ? "VIP" : "FREE"} user`);
+    // Use OpenRouter API
+    console.log(`Using OpenRouter for ${isVip ? "VIP" : "FREE"} user`);
 
-    if (!GOOGLE_AI_API_KEY) {
-      console.error("ERR_CONFIG: GOOGLE_AI_API_KEY not configured");
+    if (!OPENROUTER_API_KEY) {
+      console.error("ERR_CONFIG: OPENROUTER_API_KEY not configured");
       return new Response(
         JSON.stringify({
           error: EXTERNAL_AI_UNAVAILABLE_MESSAGE,
@@ -501,43 +501,33 @@ serve(async (req) => {
     let contentText: string | undefined;
 
     try {
-      console.log("Calling Google AI Studio API...");
+      console.log("Calling OpenRouter API...");
       
-      // Extract base64 data and mime type from data URL
-      const base64Match = imageBase64.match(/^data:([^;]+);base64,(.+)$/);
-      if (!base64Match) {
-        throw new Error("Invalid image format");
-      }
-      const mimeType = base64Match[1];
-      const base64Data = base64Match[2];
-      
-      // Google AI Studio Gemini API format
+      // OpenRouter API with OpenAI-compatible format
       const aiResponse = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GOOGLE_AI_API_KEY}`,
+        "https://openrouter.ai/api/v1/chat/completions",
         {
           method: "POST",
           signal: controller.signal,
           headers: {
+            "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
             "Content-Type": "application/json",
+            "HTTP-Referer": "https://gmbinarypro.lovable.app",
+            "X-Title": "GM Binary Pro"
           },
           body: JSON.stringify({
-            contents: [
+            model: "google/gemini-2.0-flash-exp:free",
+            messages: [
               {
-                parts: [
-                  { text: systemPrompt + "\n\n" + analysisInstruction },
-                  {
-                    inline_data: {
-                      mime_type: mimeType,
-                      data: base64Data,
-                    },
-                  },
-                ],
-              },
+                role: "user",
+                content: [
+                  { type: "text", text: systemPrompt + "\n\n" + analysisInstruction },
+                  { type: "image_url", image_url: { url: imageBase64 } }
+                ]
+              }
             ],
-            generationConfig: {
-              maxOutputTokens: 1024,
-              temperature: 0.1,
-            },
+            max_tokens: 1024,
+            temperature: 0.1
           }),
         }
       );
@@ -546,7 +536,7 @@ serve(async (req) => {
 
       if (!aiResponse.ok) {
         const errText = await aiResponse.text().catch(() => "");
-        console.error("Google AI Studio error:", aiResponse.status, errText);
+        console.error("OpenRouter error:", aiResponse.status, errText);
         
         if (aiResponse.status === 429) {
           return new Response(
@@ -560,7 +550,7 @@ serve(async (req) => {
         if (aiResponse.status === 403 || aiResponse.status === 401) {
           return new Response(
             JSON.stringify({
-              error: "AI API key invalid or expired. Please check your API key.",
+              error: "AI API key invalid or expired. Please check your OpenRouter API key.",
               apiUnavailable: true,
             }),
             { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -577,12 +567,12 @@ serve(async (req) => {
       }
 
       const aiData = await aiResponse.json().catch(() => ({} as any));
-      // Google AI Studio response format: candidates[0].content.parts[0].text
-      contentText = aiData?.candidates?.[0]?.content?.parts?.[0]?.text;
-      console.log("Google AI Studio response received successfully");
+      // OpenRouter response format (OpenAI-compatible): choices[0].message.content
+      contentText = aiData?.choices?.[0]?.message?.content;
+      console.log("OpenRouter response received successfully");
     } catch (err) {
       clearTimeout(timeoutId);
-      console.error("Google AI Studio request error:", err);
+      console.error("OpenRouter request error:", err);
       return new Response(
         JSON.stringify({
           error: EXTERNAL_AI_UNAVAILABLE_MESSAGE,
@@ -592,7 +582,7 @@ serve(async (req) => {
       );
     }
 
-    console.log("Analysis completed using: Google AI Studio");
+    console.log("Analysis completed using: OpenRouter");
 
     if (!contentText) {
       console.error("ERR_EMPTY_RESPONSE: AI returned no content");
