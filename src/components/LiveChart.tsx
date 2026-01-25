@@ -23,7 +23,7 @@ const LiveChart = () => {
   const candlestickSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
   const currentCandleRef = useRef<OHLCCandle | null>(null);
   const candlesRef = useRef<OHLCCandle[]>([]);
-  const wsRef = useRef<WebSocket | null>(null);
+  const eventSourceRef = useRef<EventSource | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   const [isConnected, setIsConnected] = useState(false);
@@ -82,33 +82,38 @@ const LiveChart = () => {
     }
   };
 
-  const connectWebSocket = () => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) return;
+  const connectEventSource = () => {
+    if (eventSourceRef.current?.readyState === EventSource.OPEN) return;
 
     try {
-      const ws = new WebSocket('wss://xcharts.live/api/market/quotex/tick_stream/?symbols=EURUSD-OTCq');
-      wsRef.current = ws;
+      // Close existing connection if any
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+      }
 
-      ws.onopen = () => {
-        console.log('[LiveChart] WebSocket connected');
+      const eventSource = new EventSource('https://xcharts.live/api/market/quotex/tick_stream/?symbols=EURUSD-OTCq');
+      eventSourceRef.current = eventSource;
+
+      eventSource.onopen = () => {
+        console.log('[LiveChart] SSE connected');
         setIsConnected(true);
       };
 
-      ws.onmessage = (event) => {
+      eventSource.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
           
-          // Handle different message formats
-          if (data.price && data.timestamp) {
+          // Handle different message formats from the SSE stream
+          if (data.price !== undefined) {
             processTick({
               symbol: data.symbol || 'EURUSD-OTCq',
               price: parseFloat(data.price),
-              timestamp: data.timestamp * 1000, // Convert to ms if in seconds
+              timestamp: (data.timestamp || data.time || Date.now() / 1000) * 1000,
             });
           } else if (data.data) {
             // Nested data format
             const tickData = data.data;
-            if (tickData.price) {
+            if (tickData.price !== undefined) {
               processTick({
                 symbol: tickData.symbol || 'EURUSD-OTCq',
                 price: parseFloat(tickData.price),
@@ -118,7 +123,7 @@ const LiveChart = () => {
           } else if (typeof data === 'object') {
             // Try to extract price from various formats
             const price = data.bid || data.ask || data.last || data.close;
-            if (price) {
+            if (price !== undefined) {
               processTick({
                 symbol: 'EURUSD-OTCq',
                 price: parseFloat(price),
@@ -127,24 +132,20 @@ const LiveChart = () => {
             }
           }
         } catch (e) {
-          console.error('[LiveChart] Parse error:', e);
+          console.error('[LiveChart] Parse error:', e, event.data);
         }
       };
 
-      ws.onerror = (error) => {
-        console.error('[LiveChart] WebSocket error:', error);
+      eventSource.onerror = (error) => {
+        console.error('[LiveChart] SSE error:', error);
         setIsConnected(false);
-      };
-
-      ws.onclose = () => {
-        console.log('[LiveChart] WebSocket closed, reconnecting in 3s...');
-        setIsConnected(false);
-        reconnectTimeoutRef.current = setTimeout(connectWebSocket, 3000);
+        eventSource.close();
+        reconnectTimeoutRef.current = setTimeout(connectEventSource, 3000);
       };
     } catch (error) {
       console.error('[LiveChart] Connection error:', error);
       setIsConnected(false);
-      reconnectTimeoutRef.current = setTimeout(connectWebSocket, 3000);
+      reconnectTimeoutRef.current = setTimeout(connectEventSource, 3000);
     }
   };
 
@@ -223,16 +224,16 @@ const LiveChart = () => {
     window.addEventListener('resize', handleResize);
     handleResize();
 
-    // Connect to WebSocket
-    connectWebSocket();
+    // Connect to SSE stream
+    connectEventSource();
 
     return () => {
       window.removeEventListener('resize', handleResize);
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
       }
-      if (wsRef.current) {
-        wsRef.current.close();
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
       }
       if (chartRef.current) {
         chartRef.current.remove();
