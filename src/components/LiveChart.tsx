@@ -101,38 +101,67 @@ const LiveChart = () => {
 
       eventSource.onmessage = (event) => {
         try {
+          // Log first few raw messages for debugging
+          if (tickCount < 5) {
+            console.log('[LiveChart] Raw data:', event.data);
+          }
+          
           const data = JSON.parse(event.data);
           
-          // Handle different message formats from the SSE stream
+          // Log parsed data structure once
+          if (tickCount === 0) {
+            console.log('[LiveChart] Parsed data structure:', JSON.stringify(data, null, 2));
+          }
+          
+          // Try multiple data extraction patterns
+          let price: number | null = null;
+          let timestamp: number = Date.now();
+          
+          // Pattern 1: Direct price field
           if (data.price !== undefined) {
-            processTick({
-              symbol: data.symbol || 'EURUSD-OTCq',
-              price: parseFloat(data.price),
-              timestamp: (data.timestamp || data.time || Date.now() / 1000) * 1000,
-            });
-          } else if (data.data) {
-            // Nested data format
-            const tickData = data.data;
-            if (tickData.price !== undefined) {
-              processTick({
-                symbol: tickData.symbol || 'EURUSD-OTCq',
-                price: parseFloat(tickData.price),
-                timestamp: (tickData.timestamp || Date.now() / 1000) * 1000,
-              });
-            }
-          } else if (typeof data === 'object') {
-            // Try to extract price from various formats
-            const price = data.bid || data.ask || data.last || data.close;
-            if (price !== undefined) {
-              processTick({
-                symbol: 'EURUSD-OTCq',
-                price: parseFloat(price),
-                timestamp: (data.time || data.timestamp || Date.now() / 1000) * 1000,
-              });
+            price = parseFloat(data.price);
+            timestamp = (data.timestamp || data.time || Date.now() / 1000) * 1000;
+          }
+          // Pattern 2: Nested in data object
+          else if (data.data?.price !== undefined) {
+            price = parseFloat(data.data.price);
+            timestamp = (data.data.timestamp || data.data.time || Date.now() / 1000) * 1000;
+          }
+          // Pattern 3: bid/ask/last/close fields
+          else if (data.bid || data.ask || data.last || data.close) {
+            price = parseFloat(data.bid || data.ask || data.last || data.close);
+            timestamp = (data.time || data.timestamp || Date.now() / 1000) * 1000;
+          }
+          // Pattern 4: Array of ticks
+          else if (Array.isArray(data) && data.length > 0) {
+            const tick = data[0];
+            if (tick.price !== undefined) {
+              price = parseFloat(tick.price);
+              timestamp = (tick.timestamp || tick.time || Date.now() / 1000) * 1000;
             }
           }
+          // Pattern 5: Value field (common in some APIs)
+          else if (data.value !== undefined) {
+            price = parseFloat(data.value);
+            timestamp = (data.timestamp || data.time || Date.now() / 1000) * 1000;
+          }
+          // Pattern 6: Quote object
+          else if (data.quote?.price !== undefined) {
+            price = parseFloat(data.quote.price);
+            timestamp = (data.quote.timestamp || Date.now() / 1000) * 1000;
+          }
+          
+          if (price !== null && !isNaN(price)) {
+            processTick({
+              symbol: data.symbol || 'EURUSD-OTCq',
+              price,
+              timestamp,
+            });
+          } else {
+            console.log('[LiveChart] Could not extract price from:', data);
+          }
         } catch (e) {
-          console.error('[LiveChart] Parse error:', e, event.data);
+          console.error('[LiveChart] Parse error:', e, 'Raw:', event.data);
         }
       };
 
