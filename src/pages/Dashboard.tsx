@@ -8,6 +8,7 @@ import {
   Settings
 } from "lucide-react";
 import { useIPUsageTracking } from "@/hooks/useIPUsageTracking";
+import LiveChart from "@/components/LiveChart";
 import { useAuth } from "@/hooks/useAuth";
 import { useAdmin } from "@/hooks/useAdmin";
 
@@ -152,9 +153,14 @@ const Dashboard = () => {
                   <Zap className="w-4 h-4 mr-2" />
                   Open Generator
                 </Button>
-              </div>
             </div>
           </div>
+
+          {/* Live Chart Section */}
+          <div className="mt-8">
+            <LiveChart />
+          </div>
+        </div>
         </div>
       </main>
 
