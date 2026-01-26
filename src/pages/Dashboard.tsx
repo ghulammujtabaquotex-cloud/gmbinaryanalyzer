@@ -104,8 +104,33 @@ const Dashboard = () => {
 
 
           {/* Trading Tools Grid */}
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">
-            {/* LIVE BOT Card - FIRST */}
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mt-8">
+            {/* Signal Generator Bot Card - FIRST */}
+            <div 
+              onClick={() => navigate("/signal-bot")}
+              className="rounded-2xl border border-amber-500/30 bg-gradient-to-br from-amber-500/10 to-amber-500/5 backdrop-blur-sm p-6 cursor-pointer hover:border-amber-500/50 hover:shadow-[0_0_30px_-10px_rgba(245,158,11,0.4)] transition-all duration-300"
+            >
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-3 rounded-xl bg-amber-500/20">
+                    <Zap className="w-8 h-8 text-amber-500" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-foreground">Signal Bot</h3>
+                    <p className="text-sm text-amber-500">AI Generator</p>
+                  </div>
+                </div>
+                <p className="text-muted-foreground">
+                  Generate future trading signals using historical analysis with customizable parameters and martingale levels.
+                </p>
+                <Button className="w-full bg-amber-500 hover:bg-amber-600 text-black font-semibold">
+                  <Zap className="w-4 h-4 mr-2" />
+                  Open Generator
+                </Button>
+              </div>
+            </div>
+
+            {/* LIVE BOT Card */}
             <div 
               onClick={() => navigate("/live-bot")}
               className="rounded-2xl border border-cyan-500/30 bg-gradient-to-br from-cyan-500/10 to-cyan-500/5 backdrop-blur-sm p-6 cursor-pointer hover:border-cyan-500/50 hover:shadow-[0_0_30px_-10px_rgba(6,182,212,0.4)] transition-all duration-300"
