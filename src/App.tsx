@@ -14,6 +14,7 @@ const Results = lazy(() => import("./pages/Results"));
 const Pricing = lazy(() => import("./pages/Pricing"));
 const Admin = lazy(() => import("./pages/Admin"));
 const FutureSignals = lazy(() => import("./pages/FutureSignals"));
+const LiveBot = lazy(() => import("./pages/LiveBot"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
@@ -28,6 +29,7 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/chart-analyzer" element={<Index />} />
+            <Route path="/live-bot" element={<LiveBot />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/results" element={<Results />} />
             <Route path="/pricing" element={<Pricing />} />

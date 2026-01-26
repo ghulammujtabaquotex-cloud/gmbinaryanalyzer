@@ -5,7 +5,8 @@ import {
   Zap, 
   Trophy, 
   Crown, 
-  Settings
+  Settings,
+  Bot
 } from "lucide-react";
 import { useIPUsageTracking } from "@/hooks/useIPUsageTracking";
 import { useAuth } from "@/hooks/useAuth";
@@ -102,9 +103,34 @@ const Dashboard = () => {
           </div>
 
 
-          {/* Trading Tools Grid - Chart Analyzer FIRST, then Future Signals */}
-          <div className="grid md:grid-cols-2 gap-6 mt-8">
-            {/* Chart Analyzer Card - ACTIVE (First) */}
+          {/* Trading Tools Grid */}
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">
+            {/* LIVE BOT Card - FIRST */}
+            <div 
+              onClick={() => navigate("/live-bot")}
+              className="rounded-2xl border border-cyan-500/30 bg-gradient-to-br from-cyan-500/10 to-cyan-500/5 backdrop-blur-sm p-6 cursor-pointer hover:border-cyan-500/50 hover:shadow-[0_0_30px_-10px_rgba(6,182,212,0.4)] transition-all duration-300"
+            >
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-3 rounded-xl bg-cyan-500/20">
+                    <Bot className="w-8 h-8 text-cyan-500" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-foreground">LIVE BOT</h3>
+                    <p className="text-sm text-cyan-500">Real-Time Trading</p>
+                  </div>
+                </div>
+                <p className="text-muted-foreground">
+                  Access our advanced live trading bot with real-time market analysis, automated signals, and instant execution.
+                </p>
+                <Button className="w-full bg-cyan-500 hover:bg-cyan-600 text-white">
+                  <Bot className="w-4 h-4 mr-2" />
+                  Launch Bot
+                </Button>
+              </div>
+            </div>
+
+            {/* Chart Analyzer Card */}
             <div 
               onClick={() => navigate("/chart-analyzer")}
               className="rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/10 to-primary/5 backdrop-blur-sm p-6 cursor-pointer hover:border-primary/50 hover:shadow-[0_0_30px_-10px_hsl(var(--primary)/0.4)] transition-all duration-300"
@@ -116,7 +142,7 @@ const Dashboard = () => {
                   </div>
                   <div>
                     <h3 className="text-xl font-bold text-foreground">Chart Analyzer</h3>
-                    <p className="text-sm text-primary">Live & Active</p>
+                    <p className="text-sm text-primary">AI Powered</p>
                   </div>
                 </div>
                 <p className="text-muted-foreground">
