@@ -8,10 +8,8 @@ import {
   Settings
 } from "lucide-react";
 import { useIPUsageTracking } from "@/hooks/useIPUsageTracking";
-import LiveChart from "@/components/LiveChart";
 import { useAuth } from "@/hooks/useAuth";
 import { useAdmin } from "@/hooks/useAdmin";
-
 const Dashboard = () => {
   const navigate = useNavigate();
   const { isVip } = useIPUsageTracking();
@@ -154,11 +152,6 @@ const Dashboard = () => {
                   Open Generator
                 </Button>
             </div>
-          </div>
-
-          {/* Live Chart Section */}
-          <div className="mt-8">
-            <LiveChart />
           </div>
         </div>
         </div>
