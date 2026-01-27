@@ -72,25 +72,25 @@ const ALL_PAIRS = [
   { symbol: 'CADJPY-OTCq', name: 'CAD/JPY' },
 ];
 
-// Convert UTC timestamp to Pakistan time (UTC+5) and get time slot
-function getTimeSlot(timestamp: number): string {
+// Convert UTC timestamp to Pakistan time (UTC+5) and get time slot (HH:MM)
+function getTimeSlotFromTimestamp(timestamp: number): string {
+  // timestamp is in seconds, convert to milliseconds
   const date = new Date(timestamp * 1000);
-  // Add 5 hours for Pakistan timezone
-  date.setHours(date.getHours() + 5);
+  // Add 5 hours for Pakistan timezone (UTC+5)
+  const pktHours = (date.getUTCHours() + 5) % 24;
+  const minutes = date.getUTCMinutes();
   
-  const hours = date.getHours().toString().padStart(2, '0');
-  const minutes = date.getMinutes().toString().padStart(2, '0');
-  
-  return `${hours}:${minutes}`;
+  return `${pktHours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
 }
 
-// Determine MTG level based on win rate
+// Determine MTG level based on win rate (GAMMA rules)
+// M0: 85%+ | M1: 75-84% | M2: 70-74% | M3: 65-69%
 function getMtgLevel(winRate: number): number {
   if (winRate >= 85) return 0;
   if (winRate >= 75) return 1;
   if (winRate >= 70) return 2;
   if (winRate >= 65) return 3;
-  return 4; // Below threshold
+  return 4; // Below threshold - not valid
 }
 
 // Fetch candle data from xcharts.live API
@@ -112,37 +112,42 @@ async function fetchCandleData(symbol: string): Promise<CandleData[]> {
     
     const data = await response.json();
     
-    // Handle different response formats
+    // Handle different response formats - data is array directly or nested
+    let candles: any[] = [];
     if (Array.isArray(data)) {
-      return data.map((c: any) => ({
-        time: c.time,
-        open: c.open,
-        close: c.close,
-        high: c.high,
-        low: c.low
-      }));
+      candles = data;
     } else if (data.data && Array.isArray(data.data)) {
-      return data.data.map((c: any) => ({
-        time: c.time,
-        open: c.open,
-        close: c.close,
-        high: c.high,
-        low: c.low
-      }));
+      candles = data.data;
+    } else if (data.candles && Array.isArray(data.candles)) {
+      candles = data.candles;
     }
     
-    return [];
+    // Map to our format, ignoring volume
+    return candles.map((c: any) => ({
+      time: c.time,
+      open: parseFloat(c.open),
+      close: parseFloat(c.close),
+      high: parseFloat(c.high),
+      low: parseFloat(c.low)
+    })).filter(c => !isNaN(c.time) && !isNaN(c.open) && !isNaN(c.close));
+    
   } catch (error) {
     console.error(`Error fetching ${symbol}:`, error);
     return [];
   }
 }
 
-// Generate future signals based on historical data
+// GAMMA Signal Generation Algorithm:
+// 1. Group historical candles by time slot (HH:MM in UTC+5)
+// 2. For each time slot, count CALL wins (close > open) and PUT wins (close < open)
+// 3. Calculate win rate = max(CALL%, PUT%)
+// 4. Determine direction based on higher win count
+// 5. Apply MTG level filter
+// 6. Generate future signals for next 60 minutes from last candle time
 function generateSignalsForPair(
   pairName: string,
   candles: CandleData[],
-  lastCandleTime: number
+  lastCandleTimestamp: number
 ): GeneratedSignal[] {
   const signals: GeneratedSignal[] = [];
   
@@ -150,11 +155,11 @@ function generateSignalsForPair(
     return signals;
   }
   
-  // Group candles by time slot (HH:MM)
+  // Group candles by time slot (HH:MM) and calculate win statistics
   const timeSlotStats: Map<string, { callWins: number; putWins: number; total: number }> = new Map();
   
   for (const candle of candles) {
-    const timeSlot = getTimeSlot(candle.time);
+    const timeSlot = getTimeSlotFromTimestamp(candle.time);
     
     if (!timeSlotStats.has(timeSlot)) {
       timeSlotStats.set(timeSlot, { callWins: 0, putWins: 0, total: 0 });
@@ -163,49 +168,58 @@ function generateSignalsForPair(
     const stats = timeSlotStats.get(timeSlot)!;
     stats.total++;
     
-    // CALL win = close > open (price went up)
-    // PUT win = close < open (price went down)
+    // CALL win = close > open (price went up - bullish candle)
+    // PUT win = close < open (price went down - bearish candle)
     if (candle.close > candle.open) {
       stats.callWins++;
     } else if (candle.close < candle.open) {
       stats.putWins++;
     }
+    // Doji candles (close == open) don't count as win for either direction
   }
   
-  // Get last candle time in Pakistan timezone to determine future signals
-  const lastDate = new Date(lastCandleTime * 1000);
-  lastDate.setHours(lastDate.getHours() + 5); // Convert to PKT
-  
-  const currentHour = lastDate.getHours();
-  const currentMinute = lastDate.getMinutes();
+  // Get last candle time in PKT
+  const lastCandleDate = new Date(lastCandleTimestamp * 1000);
+  const lastPktHour = (lastCandleDate.getUTCHours() + 5) % 24;
+  const lastPktMinute = lastCandleDate.getUTCMinutes();
   
   // Generate signals for the next 60 minutes from last candle time
   for (let i = 1; i <= 60; i++) {
-    const futureDate = new Date(lastDate);
-    futureDate.setMinutes(futureDate.getMinutes() + i);
+    // Calculate future time slot
+    let futureMinutes = lastPktMinute + i;
+    let futureHours = lastPktHour;
     
-    const timeSlot = `${futureDate.getHours().toString().padStart(2, '0')}:${futureDate.getMinutes().toString().padStart(2, '0')}`;
+    while (futureMinutes >= 60) {
+      futureMinutes -= 60;
+      futureHours = (futureHours + 1) % 24;
+    }
     
-    const stats = timeSlotStats.get(timeSlot);
+    const futureTimeSlot = `${futureHours.toString().padStart(2, '0')}:${futureMinutes.toString().padStart(2, '0')}`;
+    
+    const stats = timeSlotStats.get(futureTimeSlot);
+    
+    // Need minimum 3 samples for reliable statistics
     if (!stats || stats.total < 3) continue;
     
     const callWinRate = (stats.callWins / stats.total) * 100;
     const putWinRate = (stats.putWins / stats.total) * 100;
     
+    // Win rate is the higher of the two
     const winRate = Math.max(callWinRate, putWinRate);
-    const direction: 'CALL' | 'PUT' = callWinRate >= putWinRate ? 'CALL' : 'PUT';
     
-    // Check if meets minimum win percentage
+    // Direction is based on which has more wins
+    const direction: 'CALL' | 'PUT' = stats.callWins >= stats.putWins ? 'CALL' : 'PUT';
+    
+    // Filter by minimum win percentage
     if (winRate < MIN_WIN_PERCENT) continue;
     
+    // Get MTG level and filter
     const mtgLevel = getMtgLevel(winRate);
-    
-    // Check if MTG level is within allowed range
     if (mtgLevel > MAX_MARTINGALE) continue;
     
     signals.push({
       pair: pairName,
-      time: timeSlot,
+      time: futureTimeSlot,
       direction,
       winRate: Math.round(winRate * 10) / 10,
       mtgLevel
@@ -226,9 +240,9 @@ serve(async (req) => {
     console.log(`Timeframe: ${TIMEFRAME_MINUTES}min | Min Win: ${MIN_WIN_PERCENT}% | Max MTG: M${MAX_MARTINGALE}`);
     
     const allSignals: GeneratedSignal[] = [];
-    const progress: { pair: string; signalsFound: number; status: string; candlesReceived: number }[] = [];
+    const progress: { pair: string; signalsFound: number; candlesReceived: number }[] = [];
     
-    // Process all pairs in parallel (batch of 5 to avoid rate limiting)
+    // Process all pairs in parallel batches of 5 to avoid rate limiting
     const batchSize = 5;
     let globalLastCandleTime = 0;
     
@@ -245,14 +259,13 @@ serve(async (req) => {
             return {
               pair: pair.name,
               signalsFound: 0,
-              status: 'No data available',
               candlesReceived: 0,
               signals: [] as GeneratedSignal[],
               lastCandleTime: 0
             };
           }
           
-          // Get last candle time (most recent)
+          // Get last candle time (most recent - highest timestamp)
           const lastCandleTime = Math.max(...candles.map(c => c.time));
           
           const signals = generateSignalsForPair(pair.name, candles, lastCandleTime);
@@ -260,7 +273,6 @@ serve(async (req) => {
           return {
             pair: pair.name,
             signalsFound: signals.length,
-            status: `Analyzed ${candles.length} candles`,
             candlesReceived: candles.length,
             signals,
             lastCandleTime
@@ -275,7 +287,6 @@ serve(async (req) => {
         progress.push({
           pair: result.pair,
           signalsFound: result.signalsFound,
-          status: result.status,
           candlesReceived: result.candlesReceived
         });
         allSignals.push(...result.signals);
@@ -289,10 +300,14 @@ serve(async (req) => {
       return (aH * 60 + aM) - (bH * 60 + bM);
     });
     
-    // Get current time in PKT for reference
-    const lastCandleDate = new Date(globalLastCandleTime * 1000);
-    lastCandleDate.setHours(lastCandleDate.getHours() + 5);
-    const lastCandleTimeStr = `${lastCandleDate.getHours().toString().padStart(2, '0')}:${lastCandleDate.getMinutes().toString().padStart(2, '0')}`;
+    // Calculate last candle time in PKT for display
+    let lastCandleTimeStr = 'N/A';
+    if (globalLastCandleTime > 0) {
+      const lastDate = new Date(globalLastCandleTime * 1000);
+      const pktHours = (lastDate.getUTCHours() + 5) % 24;
+      const pktMinutes = lastDate.getUTCMinutes();
+      lastCandleTimeStr = `${pktHours.toString().padStart(2, '0')}:${pktMinutes.toString().padStart(2, '0')}`;
+    }
     
     console.log(`Generation complete! Total signals: ${allSignals.length}`);
     console.log(`Last candle time (PKT): ${lastCandleTimeStr}`);
