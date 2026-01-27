@@ -19,47 +19,69 @@ interface GeneratedSignal {
   direction: 'CALL' | 'PUT';
   winRate: number;
   mtgLevel: number;
-  callWins: number;
-  putWins: number;
-  totalCandles: number;
 }
 
-interface RequestParams {
-  timeframe: number;
-  maxMartingale: number;
-  minWinPercent: number;
-  analysisDays: number;
-  startTime: string;
-  endTime: string;
-  assets: string[];
-}
+// Fixed configuration values
+const TIMEFRAME_MINUTES = 1;
+const MIN_WIN_PERCENT = 70;
+const MAX_MARTINGALE = 0; // M0 only (85%+)
+const CANDLES_LIMIT = 600;
 
-// Supported OTC pairs
-const ALL_ASSETS = [
-  'BRLUSD_otc',
-  'USDBDT_otc',
-  'USDARS_otc',
-  'USDINR_otc',
-  'USDMXN_otc',
-  'USDPKR_otc',
-  'USDPHP_otc',
-  'USDEGP_otc',
-  'USDTRY_otc',
-  'USDIDR_otc',
-  'USDZAR_otc'
+// All supported OTC pairs with their API symbols
+const ALL_PAIRS = [
+  { symbol: 'NZDUSD-OTCq', name: 'NZD/USD' },
+  { symbol: 'GBPUSD-OTCq', name: 'GBP/USD' },
+  { symbol: 'EURNZD-OTCq', name: 'EUR/NZD' },
+  { symbol: 'AUDNZD-OTCq', name: 'AUD/NZD' },
+  { symbol: 'GBPCAD-OTCq', name: 'GBP/CAD' },
+  { symbol: 'GBPNZD-OTCq', name: 'GBP/NZD' },
+  { symbol: 'EURAUD-OTCq', name: 'EUR/AUD' },
+  { symbol: 'EURJPY-OTCq', name: 'EUR/JPY' },
+  { symbol: 'EURSGD-OTCq', name: 'EUR/SGD' },
+  { symbol: 'NZDCAD-OTCq', name: 'NZD/CAD' },
+  { symbol: 'GBPJPY-OTCq', name: 'GBP/JPY' },
+  { symbol: 'AUDUSD-OTCq', name: 'AUD/USD' },
+  { symbol: 'GBPAUD-OTCq', name: 'GBP/AUD' },
+  { symbol: 'USDZAR-OTCq', name: 'USD/ZAR' },
+  { symbol: 'GBPCHF-OTCq', name: 'GBP/CHF' },
+  { symbol: 'EURUSD-OTCq', name: 'EUR/USD' },
+  { symbol: 'USDINR-OTCq', name: 'USD/INR' },
+  { symbol: 'USDARS-OTCq', name: 'USD/ARS' },
+  { symbol: 'AUDCAD-OTCq', name: 'AUD/CAD' },
+  { symbol: 'USDBRL-OTCq', name: 'USD/BRL' },
+  { symbol: 'USDPKR-OTCq', name: 'USD/PKR' },
+  { symbol: 'NZDCHF-OTCq', name: 'NZD/CHF' },
+  { symbol: 'USDCAD-OTCq', name: 'USD/CAD' },
+  { symbol: 'USDNGN-OTCq', name: 'USD/NGN' },
+  { symbol: 'AUDJPY-OTCq', name: 'AUD/JPY' },
+  { symbol: 'AUDCHF-OTCq', name: 'AUD/CHF' },
+  { symbol: 'CADCHF-OTCq', name: 'CAD/CHF' },
+  { symbol: 'CHFJPY-OTCq', name: 'CHF/JPY' },
+  { symbol: 'EURCAD-OTCq', name: 'EUR/CAD' },
+  { symbol: 'EURCHF-OTCq', name: 'EUR/CHF' },
+  { symbol: 'EURGBP-OTCq', name: 'EUR/GBP' },
+  { symbol: 'NZDJPY-OTCq', name: 'NZD/JPY' },
+  { symbol: 'USDCHF-OTCq', name: 'USD/CHF' },
+  { symbol: 'USDCOP-OTCq', name: 'USD/COP' },
+  { symbol: 'USDDZD-OTCq', name: 'USD/DZD' },
+  { symbol: 'USDEGP-OTCq', name: 'USD/EGP' },
+  { symbol: 'USDIDR-OTCq', name: 'USD/IDR' },
+  { symbol: 'USDJPY-OTCq', name: 'USD/JPY' },
+  { symbol: 'USDMXN-OTCq', name: 'USD/MXN' },
+  { symbol: 'USDPHP-OTCq', name: 'USD/PHP' },
+  { symbol: 'CADJPY-OTCq', name: 'CAD/JPY' },
 ];
 
 // Convert UTC timestamp to Pakistan time (UTC+5) and get time slot
-function getTimeSlot(timestamp: number, timeframeMinutes: number): string {
+function getTimeSlot(timestamp: number): string {
   const date = new Date(timestamp * 1000);
   // Add 5 hours for Pakistan timezone
   date.setHours(date.getHours() + 5);
   
   const hours = date.getHours().toString().padStart(2, '0');
-  const minutes = Math.floor(date.getMinutes() / timeframeMinutes) * timeframeMinutes;
-  const minutesStr = minutes.toString().padStart(2, '0');
+  const minutes = date.getMinutes().toString().padStart(2, '0');
   
-  return `${hours}:${minutesStr}`;
+  return `${hours}:${minutes}`;
 }
 
 // Determine MTG level based on win rate
@@ -71,31 +93,9 @@ function getMtgLevel(winRate: number): number {
   return 4; // Below threshold
 }
 
-// Check if time is within range
-function isTimeInRange(timeSlot: string, startTime: string, endTime: string): boolean {
-  const [slotH, slotM] = timeSlot.split(':').map(Number);
-  const [startH, startM] = startTime.split(':').map(Number);
-  const [endH, endM] = endTime.split(':').map(Number);
-  
-  const slotMinutes = slotH * 60 + slotM;
-  const startMinutes = startH * 60 + startM;
-  const endMinutes = endH * 60 + endM;
-  
-  if (startMinutes <= endMinutes) {
-    return slotMinutes >= startMinutes && slotMinutes <= endMinutes;
-  } else {
-    // Handle overnight range
-    return slotMinutes >= startMinutes || slotMinutes <= endMinutes;
-  }
-}
-
-// Fetch candle data from GAMMA API
-async function fetchCandleData(
-  asset: string, 
-  timeframe: number, 
-  days: number
-): Promise<CandleData[]> {
-  const url = `https://ai.gammaxbd.xyz/api/candles?symbol=${asset}&timeframe=${timeframe}&days=${days}`;
+// Fetch candle data from xcharts.live API
+async function fetchCandleData(symbol: string): Promise<CandleData[]> {
+  const url = `https://xcharts.live/api/market/quotex/?symbol=${symbol}&interval=1m&limit=${CANDLES_LIMIT}`;
   
   try {
     const response = await fetch(url, {
@@ -106,7 +106,7 @@ async function fetchCandleData(
     });
     
     if (!response.ok) {
-      console.error(`Failed to fetch ${asset}: ${response.status}`);
+      console.error(`Failed to fetch ${symbol}: ${response.status}`);
       return [];
     }
     
@@ -114,33 +114,47 @@ async function fetchCandleData(
     
     // Handle different response formats
     if (Array.isArray(data)) {
-      return data;
-    } else if (data.candles && Array.isArray(data.candles)) {
-      return data.candles;
+      return data.map((c: any) => ({
+        time: c.time,
+        open: c.open,
+        close: c.close,
+        high: c.high,
+        low: c.low
+      }));
     } else if (data.data && Array.isArray(data.data)) {
-      return data.data;
+      return data.data.map((c: any) => ({
+        time: c.time,
+        open: c.open,
+        close: c.close,
+        high: c.high,
+        low: c.low
+      }));
     }
     
     return [];
   } catch (error) {
-    console.error(`Error fetching ${asset}:`, error);
+    console.error(`Error fetching ${symbol}:`, error);
     return [];
   }
 }
 
-// Generate signals for a single asset
-function generateSignalsForAsset(
-  asset: string,
+// Generate future signals based on historical data
+function generateSignalsForPair(
+  pairName: string,
   candles: CandleData[],
-  params: RequestParams
+  lastCandleTime: number
 ): GeneratedSignal[] {
   const signals: GeneratedSignal[] = [];
   
-  // Group candles by time slot
+  if (candles.length < 10) {
+    return signals;
+  }
+  
+  // Group candles by time slot (HH:MM)
   const timeSlotStats: Map<string, { callWins: number; putWins: number; total: number }> = new Map();
   
   for (const candle of candles) {
-    const timeSlot = getTimeSlot(candle.time, params.timeframe);
+    const timeSlot = getTimeSlot(candle.time);
     
     if (!timeSlotStats.has(timeSlot)) {
       timeSlotStats.set(timeSlot, { callWins: 0, putWins: 0, total: 0 });
@@ -156,20 +170,24 @@ function generateSignalsForAsset(
     } else if (candle.close < candle.open) {
       stats.putWins++;
     }
-    // If close === open, it's a doji (no clear winner)
   }
   
-  // Generate signals for each time slot
-  for (const [timeSlot, stats] of timeSlotStats) {
-    // Skip if not in time range
-    if (!isTimeInRange(timeSlot, params.startTime, params.endTime)) {
-      continue;
-    }
+  // Get last candle time in Pakistan timezone to determine future signals
+  const lastDate = new Date(lastCandleTime * 1000);
+  lastDate.setHours(lastDate.getHours() + 5); // Convert to PKT
+  
+  const currentHour = lastDate.getHours();
+  const currentMinute = lastDate.getMinutes();
+  
+  // Generate signals for the next 60 minutes from last candle time
+  for (let i = 1; i <= 60; i++) {
+    const futureDate = new Date(lastDate);
+    futureDate.setMinutes(futureDate.getMinutes() + i);
     
-    // Need at least 5 candles for reliable signal
-    if (stats.total < 5) {
-      continue;
-    }
+    const timeSlot = `${futureDate.getHours().toString().padStart(2, '0')}:${futureDate.getMinutes().toString().padStart(2, '0')}`;
+    
+    const stats = timeSlotStats.get(timeSlot);
+    if (!stats || stats.total < 3) continue;
     
     const callWinRate = (stats.callWins / stats.total) * 100;
     const putWinRate = (stats.putWins / stats.total) * 100;
@@ -178,26 +196,19 @@ function generateSignalsForAsset(
     const direction: 'CALL' | 'PUT' = callWinRate >= putWinRate ? 'CALL' : 'PUT';
     
     // Check if meets minimum win percentage
-    if (winRate < params.minWinPercent) {
-      continue;
-    }
+    if (winRate < MIN_WIN_PERCENT) continue;
     
     const mtgLevel = getMtgLevel(winRate);
     
     // Check if MTG level is within allowed range
-    if (mtgLevel > params.maxMartingale) {
-      continue;
-    }
+    if (mtgLevel > MAX_MARTINGALE) continue;
     
     signals.push({
-      pair: asset,
+      pair: pairName,
       time: timeSlot,
       direction,
       winRate: Math.round(winRate * 10) / 10,
-      mtgLevel,
-      callWins: stats.callWins,
-      putWins: stats.putWins,
-      totalCandles: stats.total
+      mtgLevel
     });
   }
   
@@ -211,47 +222,64 @@ serve(async (req) => {
   }
   
   try {
-    const body = await req.json();
-    
-    const params: RequestParams = {
-      timeframe: body.timeframe || 1,
-      maxMartingale: body.maxMartingale ?? 0,
-      minWinPercent: body.minWinPercent || 70,
-      analysisDays: body.analysisDays || 28,
-      startTime: body.startTime || '00:00',
-      endTime: body.endTime || '23:59',
-      assets: body.assets && body.assets.length > 0 ? body.assets : ALL_ASSETS
-    };
-    
-    console.log('Generating signals with params:', params);
+    console.log('Starting signal generation with fixed params...');
+    console.log(`Timeframe: ${TIMEFRAME_MINUTES}min | Min Win: ${MIN_WIN_PERCENT}% | Max MTG: M${MAX_MARTINGALE}`);
     
     const allSignals: GeneratedSignal[] = [];
-    const progress: { asset: string; signalsFound: number; status: string }[] = [];
+    const progress: { pair: string; signalsFound: number; status: string; candlesReceived: number }[] = [];
     
-    // Process each asset
-    for (const asset of params.assets) {
-      console.log(`Analyzing ${asset}...`);
+    // Process all pairs in parallel (batch of 5 to avoid rate limiting)
+    const batchSize = 5;
+    let globalLastCandleTime = 0;
+    
+    for (let i = 0; i < ALL_PAIRS.length; i += batchSize) {
+      const batch = ALL_PAIRS.slice(i, i + batchSize);
       
-      const candles = await fetchCandleData(asset, params.timeframe, params.analysisDays);
+      const batchResults = await Promise.all(
+        batch.map(async (pair) => {
+          console.log(`Analyzing ${pair.name}...`);
+          
+          const candles = await fetchCandleData(pair.symbol);
+          
+          if (candles.length === 0) {
+            return {
+              pair: pair.name,
+              signalsFound: 0,
+              status: 'No data available',
+              candlesReceived: 0,
+              signals: [] as GeneratedSignal[],
+              lastCandleTime: 0
+            };
+          }
+          
+          // Get last candle time (most recent)
+          const lastCandleTime = Math.max(...candles.map(c => c.time));
+          
+          const signals = generateSignalsForPair(pair.name, candles, lastCandleTime);
+          
+          return {
+            pair: pair.name,
+            signalsFound: signals.length,
+            status: `Analyzed ${candles.length} candles`,
+            candlesReceived: candles.length,
+            signals,
+            lastCandleTime
+          };
+        })
+      );
       
-      if (candles.length === 0) {
+      for (const result of batchResults) {
+        if (result.lastCandleTime > globalLastCandleTime) {
+          globalLastCandleTime = result.lastCandleTime;
+        }
         progress.push({
-          asset,
-          signalsFound: 0,
-          status: 'No data available'
+          pair: result.pair,
+          signalsFound: result.signalsFound,
+          status: result.status,
+          candlesReceived: result.candlesReceived
         });
-        continue;
+        allSignals.push(...result.signals);
       }
-      
-      const signals = generateSignalsForAsset(asset, candles, params);
-      
-      allSignals.push(...signals);
-      
-      progress.push({
-        asset,
-        signalsFound: signals.length,
-        status: `Analyzed ${candles.length} candles`
-      });
     }
     
     // Sort signals by time
@@ -261,6 +289,14 @@ serve(async (req) => {
       return (aH * 60 + aM) - (bH * 60 + bM);
     });
     
+    // Get current time in PKT for reference
+    const lastCandleDate = new Date(globalLastCandleTime * 1000);
+    lastCandleDate.setHours(lastCandleDate.getHours() + 5);
+    const lastCandleTimeStr = `${lastCandleDate.getHours().toString().padStart(2, '0')}:${lastCandleDate.getMinutes().toString().padStart(2, '0')}`;
+    
+    console.log(`Generation complete! Total signals: ${allSignals.length}`);
+    console.log(`Last candle time (PKT): ${lastCandleTimeStr}`);
+    
     return new Response(
       JSON.stringify({
         success: true,
@@ -268,9 +304,10 @@ serve(async (req) => {
         progress,
         summary: {
           totalSignals: allSignals.length,
-          assetsAnalyzed: params.assets.length,
-          timeframe: params.timeframe,
-          analysisDays: params.analysisDays
+          pairsAnalyzed: ALL_PAIRS.length,
+          timeframe: TIMEFRAME_MINUTES,
+          minWinPercent: MIN_WIN_PERCENT,
+          lastCandleTime: lastCandleTimeStr
         }
       }),
       {

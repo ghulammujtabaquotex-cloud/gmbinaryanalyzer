@@ -1,45 +1,34 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Cpu, Crown } from "lucide-react";
-import { SignalBotConfig, SignalConfig } from "@/components/SignalBotConfig";
-import { SignalBotResults, GeneratedSignal } from "@/components/SignalBotResults";
-import { SignalBotTerminal, LogEntry } from "@/components/SignalBotTerminal";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ArrowLeft, Cpu, Crown, Play, Square, Terminal, Loader2 } from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { useIPUsageTracking } from "@/hooks/useIPUsageTracking";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+
+interface LogEntry {
+  timestamp: string;
+  message: string;
+  type: 'info' | 'success' | 'warning' | 'error' | 'signal';
+}
+
+interface GeneratedSignal {
+  pair: string;
+  time: string;
+  direction: 'CALL' | 'PUT';
+  winRate: number;
+  mtgLevel: number;
+}
 
 const SignalBot = () => {
   const navigate = useNavigate();
   const { isVip } = useIPUsageTracking();
   
-  const [config, setConfig] = useState<SignalConfig>({
-    timeframe: 1,
-    maxMartingale: 0,
-    minWinPercent: 70,
-    analysisDays: 28,
-    startTime: '00:00',
-    endTime: '23:59',
-    assets: [
-      'BRLUSD_otc',
-      'USDBDT_otc',
-      'USDARS_otc',
-      'USDINR_otc',
-      'USDMXN_otc',
-      'USDPKR_otc',
-      'USDPHP_otc',
-      'USDEGP_otc',
-      'USDTRY_otc',
-      'USDIDR_otc',
-      'USDZAR_otc'
-    ]
-  });
-  
-  const [signals, setSignals] = useState<GeneratedSignal[]>([]);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
   const [abortController, setAbortController] = useState<AbortController | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   const addLog = useCallback((message: string, type: LogEntry['type'] = 'info') => {
     const timestamp = new Date().toLocaleTimeString('en-US', { 
@@ -51,22 +40,24 @@ const SignalBot = () => {
     setLogs(prev => [...prev, { timestamp, message, type }]);
   }, []);
 
-  const generateSignals = async () => {
-    if (config.assets.length === 0) {
-      toast.error("Please select at least one asset");
-      return;
+  // Auto-scroll to bottom when new logs are added
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
+  }, [logs]);
 
+  const generateSignals = async () => {
     setIsGenerating(true);
-    setSignals([]);
     setLogs([]);
     
     const controller = new AbortController();
     setAbortController(controller);
 
-    addLog('Starting signal generation...', 'info');
-    addLog(`Timeframe: ${config.timeframe} min | Days: ${config.analysisDays} | Min Win: ${config.minWinPercent}%`, 'info');
-    addLog(`Analyzing ${config.assets.length} assets...`, 'info');
+    addLog('Initializing Signal Generator Bot...', 'info');
+    addLog('Timeframe: 1 min | Min Win: 70% | MTG: M0', 'info');
+    addLog('Fetching data from 41 OTC pairs...', 'info');
+    addLog('', 'info');
 
     try {
       const response = await fetch(
@@ -77,7 +68,7 @@ const SignalBot = () => {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`
           },
-          body: JSON.stringify(config),
+          body: JSON.stringify({}),
           signal: controller.signal
         }
       );
@@ -88,19 +79,44 @@ const SignalBot = () => {
         throw new Error(data.error || 'Failed to generate signals');
       }
 
-      // Log progress for each asset
+      // Log progress for each pair
       for (const prog of data.progress || []) {
         if (prog.signalsFound > 0) {
-          addLog(`${prog.asset}: Found ${prog.signalsFound} signals`, 'success');
+          addLog(`✓ ${prog.pair}: ${prog.candlesReceived} candles → ${prog.signalsFound} signals`, 'success');
+        } else if (prog.candlesReceived > 0) {
+          addLog(`○ ${prog.pair}: ${prog.candlesReceived} candles → No qualifying signals`, 'warning');
         } else {
-          addLog(`${prog.asset}: ${prog.status}`, 'warning');
+          addLog(`✗ ${prog.pair}: No data available`, 'error');
         }
       }
 
-      setSignals(data.signals || []);
+      addLog('', 'info');
+      addLog('═══════════════════════════════════════════════', 'info');
+      addLog(`GENERATION COMPLETE | Last Candle: ${data.summary?.lastCandleTime || 'N/A'} PKT`, 'success');
+      addLog('═══════════════════════════════════════════════', 'info');
+      addLog('', 'info');
+
+      // Display generated signals in terminal
+      const signals: GeneratedSignal[] = data.signals || [];
       
-      addLog(`Generation complete! Total signals: ${data.signals?.length || 0}`, 'success');
-      toast.success(`Generated ${data.signals?.length || 0} signals`);
+      if (signals.length > 0) {
+        addLog(`GENERATED SIGNALS (${signals.length} total):`, 'success');
+        addLog('─────────────────────────────────────────────', 'info');
+        addLog('PAIR              TIME    DIRECTION', 'info');
+        addLog('─────────────────────────────────────────────', 'info');
+        
+        for (const signal of signals) {
+          const pairPadded = signal.pair.padEnd(16, ' ');
+          const directionColor = signal.direction === 'CALL' ? 'success' : 'error';
+          addLog(`${pairPadded}  ${signal.time}   ${signal.direction}`, 'signal');
+        }
+        
+        addLog('─────────────────────────────────────────────', 'info');
+      } else {
+        addLog('No signals found matching criteria (70%+ win rate, M0)', 'warning');
+      }
+
+      toast.success(`Generated ${signals.length} signals`);
 
     } catch (error: any) {
       if (error.name === 'AbortError') {
@@ -122,38 +138,13 @@ const SignalBot = () => {
     }
   };
 
-  const saveToPool = async () => {
-    if (signals.length === 0) {
-      toast.error("No signals to save");
-      return;
-    }
-
-    setIsSaving(true);
-    addLog('Saving signals to pool...', 'info');
-
-    try {
-      // Prepare signals for insertion
-      const signalsToInsert = signals.map(s => ({
-        pair: s.pair,
-        signal_time: s.time,
-        direction: s.direction,
-        confidence: Math.round(s.winRate)
-      }));
-
-      const { error } = await supabase
-        .from('future_signals_pool')
-        .insert(signalsToInsert);
-
-      if (error) throw error;
-
-      addLog(`Saved ${signals.length} signals to pool`, 'success');
-      toast.success(`Saved ${signals.length} signals to the pool`);
-
-    } catch (error: any) {
-      addLog(`Save failed: ${error.message}`, 'error');
-      toast.error(error.message || "Failed to save signals");
-    } finally {
-      setIsSaving(false);
+  const getLogColor = (type: LogEntry['type']) => {
+    switch (type) {
+      case 'success': return 'text-green-400';
+      case 'warning': return 'text-yellow-400';
+      case 'error': return 'text-red-400';
+      case 'signal': return 'text-cyan-400';
+      default: return 'text-gray-400';
     }
   };
 
@@ -206,40 +197,81 @@ const SignalBot = () => {
               </div>
               <div>
                 <h1 className="text-xl font-bold text-foreground">Signal Generator Bot</h1>
-                <p className="text-xs text-muted-foreground">AI-Powered Signal Analysis</p>
+                <p className="text-xs text-muted-foreground">AI-Powered Signal Analysis • 41 OTC Pairs</p>
               </div>
+            </div>
+            
+            {/* Generate/Stop Button */}
+            <div>
+              {isGenerating ? (
+                <Button
+                  onClick={stopGeneration}
+                  variant="destructive"
+                  size="sm"
+                >
+                  <Square className="w-4 h-4 mr-2" />
+                  Stop
+                </Button>
+              ) : (
+                <Button
+                  onClick={generateSignals}
+                  size="sm"
+                  className="bg-amber-500 hover:bg-amber-600 text-black font-semibold"
+                >
+                  <Play className="w-4 h-4 mr-2" />
+                  Generate Signals
+                </Button>
+              )}
             </div>
           </div>
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="container mx-auto px-4 py-6 max-w-7xl">
-        <div className="grid lg:grid-cols-3 gap-6">
-          {/* Left Column - Config */}
-          <div className="lg:col-span-1 space-y-6">
-            <SignalBotConfig
-              config={config}
-              onConfigChange={setConfig}
-              onGenerate={generateSignals}
-              onStop={stopGeneration}
-              isGenerating={isGenerating}
-            />
-          </div>
-
-          {/* Right Column - Terminal & Results */}
-          <div className="lg:col-span-2 space-y-6">
-            <SignalBotTerminal
-              logs={logs}
-              isGenerating={isGenerating}
-            />
-            <SignalBotResults
-              signals={signals}
-              onSaveToPool={saveToPool}
-              isSaving={isSaving}
-            />
-          </div>
-        </div>
+      {/* Main Content - Terminal Only */}
+      <main className="container mx-auto px-4 py-6">
+        <Card className="border-green-500/30 bg-black/90">
+          <CardHeader className="pb-2 border-b border-green-500/20">
+            <CardTitle className="flex items-center gap-2 text-sm font-mono text-green-400">
+              <Terminal className="w-4 h-4" />
+              Terminal Output
+              {isGenerating && (
+                <Loader2 className="w-4 h-4 animate-spin ml-auto" />
+              )}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <ScrollArea className="h-[calc(100vh-220px)]" ref={scrollRef}>
+              <div className="p-4 font-mono text-sm space-y-0.5">
+                {logs.length === 0 ? (
+                  <div className="text-gray-500">
+                    <p>GM Binary Pro Signal Generator v2.0</p>
+                    <p>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p>
+                    <p>Fixed Configuration:</p>
+                    <p>  • Timeframe: 1 minute</p>
+                    <p>  • Minimum Win Rate: 70%</p>
+                    <p>  • Martingale Level: M0 (85%+ only)</p>
+                    <p>  • Candles Analyzed: 600 per pair</p>
+                    <p>  • Total Pairs: 41 OTC assets</p>
+                    <p>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p>
+                    <p className="text-green-400 mt-4">Press "Generate Signals" to start analysis...</p>
+                  </div>
+                ) : (
+                  logs.map((log, index) => (
+                    <div key={index} className={getLogColor(log.type)}>
+                      {log.message ? (
+                        <span>
+                          <span className="text-gray-600">[{log.timestamp}]</span> {log.message}
+                        </span>
+                      ) : (
+                        <br />
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+            </ScrollArea>
+          </CardContent>
+        </Card>
       </main>
     </div>
   );
