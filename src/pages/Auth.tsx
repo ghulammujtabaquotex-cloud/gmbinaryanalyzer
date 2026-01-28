@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { BarChart3, Mail, Lock, LogIn } from "lucide-react";
+import { BarChart3, Mail, Lock, LogIn, UserPlus } from "lucide-react";
 import { z } from "zod";
 
 const emailSchema = z.string().email("Please enter a valid email address");
@@ -15,6 +15,7 @@ const Auth = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -22,13 +23,13 @@ const Auth = () => {
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (session) {
-        navigate("/");
+        navigate("/dashboard");
       }
     });
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
-        navigate("/");
+        navigate("/dashboard");
       }
     });
 
@@ -60,25 +61,44 @@ const Auth = () => {
     setIsLoading(true);
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-      
-      if (error) {
-        if (error.message.includes("Invalid login credentials")) {
-          throw new Error("Invalid email or password. Please try again.");
+      if (isSignUp) {
+        // Sign up
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            emailRedirectTo: window.location.origin,
+          },
+        });
+        
+        if (error) throw error;
+        
+        toast({
+          title: "Account created!",
+          description: "You have been signed up and logged in successfully.",
+        });
+      } else {
+        // Sign in
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        
+        if (error) {
+          if (error.message.includes("Invalid login credentials")) {
+            throw new Error("Invalid email or password. Please try again.");
+          }
+          throw error;
         }
-        throw error;
+        
+        toast({
+          title: "Welcome back!",
+          description: "You have been logged in successfully.",
+        });
       }
-      
-      toast({
-        title: "Welcome back!",
-        description: "You have been logged in successfully.",
-      });
     } catch (error) {
       toast({
-        title: "Login failed",
+        title: isSignUp ? "Sign up failed" : "Login failed",
         description: error instanceof Error ? error.message : "An error occurred. Please try again.",
         variant: "destructive",
       });
@@ -106,8 +126,12 @@ const Auth = () => {
       <main className="flex-1 flex items-center justify-center px-4 py-12">
         <div className="w-full max-w-md space-y-8">
           <div className="text-center space-y-2">
-            <h2 className="text-2xl font-bold text-foreground">Welcome Back</h2>
-            <p className="text-muted-foreground">Sign in to access the chart analyzer</p>
+            <h2 className="text-2xl font-bold text-foreground">
+              {isSignUp ? "Create Account" : "Welcome Back"}
+            </h2>
+            <p className="text-muted-foreground">
+              {isSignUp ? "Sign up to access the trading tools" : "Sign in to access the trading tools"}
+            </p>
           </div>
 
           <div className="glass-card p-6 rounded-xl gradient-border">
@@ -159,6 +183,11 @@ const Auth = () => {
               >
                 {isLoading ? (
                   "Please wait..."
+                ) : isSignUp ? (
+                  <>
+                    <UserPlus className="w-4 h-4 mr-2" />
+                    Create Account
+                  </>
                 ) : (
                   <>
                     <LogIn className="w-4 h-4 mr-2" />
@@ -167,10 +196,23 @@ const Auth = () => {
                 )}
               </Button>
             </form>
+
+            <div className="mt-6 text-center">
+              <button
+                type="button"
+                onClick={() => setIsSignUp(!isSignUp)}
+                className="text-sm text-primary hover:underline"
+                disabled={isLoading}
+              >
+                {isSignUp 
+                  ? "Already have an account? Sign in" 
+                  : "Don't have an account? Sign up"}
+              </button>
+            </div>
           </div>
 
           <p className="text-center text-xs text-muted-foreground">
-            Access restricted to authorized users only
+            By continuing, you agree to our terms of service
           </p>
         </div>
       </main>

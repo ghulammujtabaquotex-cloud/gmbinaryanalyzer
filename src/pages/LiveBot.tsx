@@ -29,7 +29,7 @@ const LiveBot = () => {
       {/* Iframe Container */}
       <div className="flex-1 w-full">
         <iframe
-          src="https://gm-analyzer-2.vercel.app"
+          src="https://livesignalbot.vercel.app"
           className="w-full h-full border-0"
           style={{ minHeight: 'calc(100vh - 57px)' }}
           title="Live Bot Trading Terminal"
