@@ -13,7 +13,6 @@ const Auth = lazy(() => import("./pages/Auth"));
 const Results = lazy(() => import("./pages/Results"));
 const Pricing = lazy(() => import("./pages/Pricing"));
 const Admin = lazy(() => import("./pages/Admin"));
-const FutureSignals = lazy(() => import("./pages/FutureSignals"));
 const LiveBot = lazy(() => import("./pages/LiveBot"));
 const SignalBot = lazy(() => import("./pages/SignalBot"));
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -28,14 +27,14 @@ const App = () => (
       <BrowserRouter>
         <Suspense fallback={<div className="min-h-screen bg-background" />}>
           <Routes>
-            <Route path="/" element={<Dashboard />} />
+            <Route path="/" element={<Auth />} />
+            <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/chart-analyzer" element={<Index />} />
             <Route path="/live-bot" element={<LiveBot />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/results" element={<Results />} />
             <Route path="/pricing" element={<Pricing />} />
             <Route path="/admin" element={<Admin />} />
-            <Route path="/future-signals" element={<FutureSignals />} />
             <Route path="/signal-bot" element={<SignalBot />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />

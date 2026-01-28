@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Loader2, Crown, Send, Zap } from 'lucide-react';
+import { ArrowLeft, Loader2, Crown, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
@@ -9,7 +9,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useAdmin } from '@/hooks/useAdmin';
 import { toast } from 'sonner';
-import AdminFutureSignals from '@/components/AdminFutureSignals';
 
 const Admin = () => {
   const navigate = useNavigate();
@@ -197,14 +196,6 @@ const Admin = () => {
           </CardContent>
         </Card>
 
-        {/* Future Signals Section */}
-        <div className="space-y-6">
-          <div className="flex items-center gap-2">
-            <Zap className="w-5 h-5 text-primary" />
-            <h2 className="text-xl font-bold text-foreground">Future Signals</h2>
-          </div>
-          <AdminFutureSignals />
-        </div>
       </main>
     </div>
   );

@@ -11,11 +11,32 @@ import {
 import { useIPUsageTracking } from "@/hooks/useIPUsageTracking";
 import { useAuth } from "@/hooks/useAuth";
 import { useAdmin } from "@/hooks/useAdmin";
+import { useEffect } from "react";
+
 const Dashboard = () => {
   const navigate = useNavigate();
   const { isVip } = useIPUsageTracking();
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
   const { isAdmin } = useAdmin();
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!isLoading && !user) {
+      navigate("/");
+    }
+  }, [user, isLoading, navigate]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="animate-spin text-4xl">⚙</div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-background flex flex-col overflow-x-hidden">
@@ -71,17 +92,6 @@ const Dashboard = () => {
                 <span className="hidden sm:inline">{isVip ? "VIP" : "Upgrade"}</span>
               </Button>
               
-              {/* Auth Link */}
-              {!user && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => navigate("/auth")}
-                  className="text-muted-foreground hover:text-foreground"
-                >
-                  Login
-                </Button>
-              )}
             </div>
           </div>
         </div>
@@ -117,15 +127,15 @@ const Dashboard = () => {
                   </div>
                   <div>
                     <h3 className="text-xl font-bold text-foreground">Signal Bot</h3>
-                    <p className="text-sm text-amber-500">AI Generator</p>
+                    <p className="text-sm text-amber-500">Future Signals</p>
                   </div>
                 </div>
                 <p className="text-muted-foreground">
-                  Generate future trading signals using historical analysis with customizable parameters and martingale levels.
+                  Access the future signal generator for AI-powered trading predictions and market analysis.
                 </p>
                 <Button className="w-full bg-amber-500 hover:bg-amber-600 text-black font-semibold">
                   <Zap className="w-4 h-4 mr-2" />
-                  Open Generator
+                  Open Signal Bot
                 </Button>
               </div>
             </div>
