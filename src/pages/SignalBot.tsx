@@ -2,9 +2,8 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Cpu, Crown, Play, Square, Terminal, Loader2 } from "lucide-react";
+import { ArrowLeft, Cpu, Play, Square, Terminal, Loader2 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { useIPUsageTracking } from "@/hooks/useIPUsageTracking";
 import { toast } from "sonner";
 
 interface LogEntry {
@@ -23,7 +22,6 @@ interface GeneratedSignal {
 
 const SignalBot = () => {
   const navigate = useNavigate();
-  const { isVip } = useIPUsageTracking();
   
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -147,36 +145,6 @@ const SignalBot = () => {
       default: return 'text-gray-400';
     }
   };
-
-  // VIP gate check
-  if (!isVip) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <div className="text-center space-y-6 max-w-md">
-          <div className="p-4 rounded-full bg-amber-500/20 w-fit mx-auto">
-            <Crown className="w-12 h-12 text-amber-500" />
-          </div>
-          <h1 className="text-2xl font-bold">VIP Access Required</h1>
-          <p className="text-muted-foreground">
-            The Signal Generator Bot is a premium feature available exclusively for VIP members.
-          </p>
-          <div className="flex gap-4 justify-center">
-            <Button variant="outline" onClick={() => navigate("/")}>
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Dashboard
-            </Button>
-            <Button 
-              onClick={() => navigate("/pricing")}
-              className="bg-amber-500 hover:bg-amber-600 text-black"
-            >
-              <Crown className="w-4 h-4 mr-2" />
-              Upgrade to VIP
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-background">
