@@ -6,7 +6,8 @@ import {
   Trophy, 
   Crown, 
   Settings,
-  Bot
+  Bot,
+  LogOut
 } from "lucide-react";
 import { useIPUsageTracking } from "@/hooks/useIPUsageTracking";
 import { useAuth } from "@/hooks/useAuth";
@@ -16,8 +17,13 @@ import { useEffect } from "react";
 const Dashboard = () => {
   const navigate = useNavigate();
   const { isVip } = useIPUsageTracking();
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, signOut } = useAuth();
   const { isAdmin } = useAdmin();
+
+  const handleLogout = async () => {
+    await signOut();
+    navigate("/");
+  };
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -88,8 +94,19 @@ const Dashboard = () => {
                   : "border-primary/50 text-primary hover:bg-primary/10"
                 }
               >
-                <Crown className="w-4 h-4 mr-1 sm:mr-2" />
+              <Crown className="w-4 h-4 mr-1 sm:mr-2" />
                 <span className="hidden sm:inline">{isVip ? "VIP" : "Upgrade"}</span>
+              </Button>
+
+              {/* Logout Button */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleLogout}
+                className="text-muted-foreground hover:text-destructive"
+              >
+                <LogOut className="w-4 h-4 mr-1 sm:mr-2" />
+                <span className="hidden sm:inline">Logout</span>
               </Button>
               
             </div>
