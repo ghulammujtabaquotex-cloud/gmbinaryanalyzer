@@ -94,7 +94,7 @@ const Dashboard = () => {
                   : "border-primary/50 text-primary hover:bg-primary/10"
                 }
               >
-              <Crown className="w-4 h-4 mr-1 sm:mr-2" />
+                <Crown className="w-4 h-4 mr-1 sm:mr-2" />
                 <span className="hidden sm:inline">{isVip ? "VIP" : "Upgrade"}</span>
               </Button>
 
@@ -108,7 +108,6 @@ const Dashboard = () => {
                 <LogOut className="w-4 h-4 mr-1 sm:mr-2" />
                 <span className="hidden sm:inline">Logout</span>
               </Button>
-              
             </div>
           </div>
         </div>
@@ -117,8 +116,6 @@ const Dashboard = () => {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8 max-w-5xl flex-1">
         <div className="space-y-8">
-          {/* Hero Section */}
-
           {/* Hero Section */}
           <div className="text-center space-y-4 py-4">
             <h2 className="text-3xl md:text-4xl font-bold text-foreground">
@@ -129,10 +126,9 @@ const Dashboard = () => {
             </p>
           </div>
 
-
           {/* Trading Tools Grid */}
-          <div className="grid md:grid-cols-3 gap-6 mt-8">
-            {/* Signal Generator Bot Card - FIRST */}
+          <div className="grid md:grid-cols-2 gap-6 mt-8">
+            {/* Signal Generator Bot Card */}
             <div 
               onClick={() => navigate("/signal-bot")}
               className="rounded-2xl border border-amber-500/30 bg-gradient-to-br from-amber-500/10 to-amber-500/5 backdrop-blur-sm p-6 cursor-pointer hover:border-amber-500/50 hover:shadow-[0_0_30px_-10px_rgba(245,158,11,0.4)] transition-all duration-300"
@@ -203,6 +199,31 @@ const Dashboard = () => {
                 <Button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">
                   <BarChart3 className="w-4 h-4 mr-2" />
                   Analyze Chart
+                </Button>
+              </div>
+            </div>
+
+            {/* TELEBOT Card */}
+            <div 
+              onClick={() => navigate("/tele-bot")}
+              className="rounded-2xl border border-purple-500/30 bg-gradient-to-br from-purple-500/10 to-purple-500/5 backdrop-blur-sm p-6 cursor-pointer hover:border-purple-500/50 hover:shadow-[0_0_30px_-10px_rgba(168,85,247,0.4)] transition-all duration-300"
+            >
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-3 rounded-xl bg-purple-500/20">
+                    <Bot className="w-8 h-8 text-purple-500" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-foreground">TELEBOT</h3>
+                    <p className="text-sm text-purple-500">Telegram Bot</p>
+                  </div>
+                </div>
+                <p className="text-muted-foreground">
+                  Manage and control the Telegram bot for automated signal delivery and notifications.
+                </p>
+                <Button className="w-full bg-purple-500 hover:bg-purple-600 text-white">
+                  <Bot className="w-4 h-4 mr-2" />
+                  Open TELEBOT
                 </Button>
               </div>
             </div>
