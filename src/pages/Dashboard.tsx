@@ -128,7 +128,7 @@ const Dashboard = () => {
 
           {/* Trading Tools Grid */}
           <div className="grid md:grid-cols-2 gap-6 mt-8">
-            {/* Signal Generator Bot Card */}
+            {/* FUTURE BOT Card (formerly Signal Bot) */}
             <div 
               onClick={() => navigate("/signal-bot")}
               className="rounded-2xl border border-amber-500/30 bg-gradient-to-br from-amber-500/10 to-amber-500/5 backdrop-blur-sm p-6 cursor-pointer hover:border-amber-500/50 hover:shadow-[0_0_30px_-10px_rgba(245,158,11,0.4)] transition-all duration-300"
@@ -139,7 +139,7 @@ const Dashboard = () => {
                     <Zap className="w-8 h-8 text-amber-500" />
                   </div>
                   <div>
-                    <h3 className="text-xl font-bold text-foreground">Signal Bot</h3>
+                    <h3 className="text-xl font-bold text-foreground">FUTURE BOT</h3>
                     <p className="text-sm text-amber-500">Future Signals</p>
                   </div>
                 </div>
@@ -148,7 +148,7 @@ const Dashboard = () => {
                 </p>
                 <Button className="w-full bg-amber-500 hover:bg-amber-600 text-black font-semibold">
                   <Zap className="w-4 h-4 mr-2" />
-                  Open Signal Bot
+                  Open FUTURE BOT
                 </Button>
               </div>
             </div>
@@ -178,35 +178,10 @@ const Dashboard = () => {
               </div>
             </div>
 
-            {/* Chart Analyzer Card */}
-            <div 
-              onClick={() => navigate("/chart-analyzer")}
-              className="rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/10 to-primary/5 backdrop-blur-sm p-6 cursor-pointer hover:border-primary/50 hover:shadow-[0_0_30px_-10px_hsl(var(--primary)/0.4)] transition-all duration-300"
-            >
-              <div className="space-y-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-3 rounded-xl bg-primary/20">
-                    <BarChart3 className="w-8 h-8 text-primary" />
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-bold text-foreground">Chart Analyzer</h3>
-                    <p className="text-sm text-primary">AI Powered</p>
-                  </div>
-                </div>
-                <p className="text-muted-foreground">
-                  Upload your trading chart and get instant AI analysis with support, resistance, and next candle prediction.
-                </p>
-                <Button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">
-                  <BarChart3 className="w-4 h-4 mr-2" />
-                  Analyze Chart
-                </Button>
-              </div>
-            </div>
-
             {/* TELEBOT Card */}
             <div 
               onClick={() => navigate("/tele-bot")}
-              className="rounded-2xl border border-purple-500/30 bg-gradient-to-br from-purple-500/10 to-purple-500/5 backdrop-blur-sm p-6 cursor-pointer hover:border-purple-500/50 hover:shadow-[0_0_30px_-10px_rgba(168,85,247,0.4)] transition-all duration-300"
+              className="rounded-2xl border border-purple-500/30 bg-gradient-to-br from-purple-500/10 to-purple-500/5 backdrop-blur-sm p-6 cursor-pointer hover:border-purple-500/50 hover:shadow-[0_0_30px_-10px_rgba(168,85,247,0.4)] transition-all duration-300 md:col-span-2"
             >
               <div className="space-y-4">
                 <div className="flex items-center gap-3">

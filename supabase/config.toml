@@ -3,9 +3,6 @@ project_id = "rbqafiykevtbgztczizr"
 [functions.auto-send-signals]
 verify_jwt = false
 
-[functions.analyze-chart]
-verify_jwt = false
-
 [functions.submit-result]
 verify_jwt = false
 
@@ -19,4 +16,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.generate-signals]
+verify_jwt = false
+
+[functions.telebot-scanner]
 verify_jwt = false
