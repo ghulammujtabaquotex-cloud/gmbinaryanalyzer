@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Loader2, Crown, Send } from 'lucide-react';
+import { ArrowLeft, Loader2, Crown, Send, Bot, Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
@@ -14,24 +14,47 @@ const Admin = () => {
   const navigate = useNavigate();
   const { user, isLoading: authLoading } = useAuth();
   const { isAdmin, isLoading: adminLoading } = useAdmin();
+  
+  // Future Signals Telegram Settings
   const [telegramEnabled, setTelegramEnabled] = useState(true);
   const [telegramLoading, setTelegramLoading] = useState(false);
   const [chatId, setChatId] = useState('');
   const [chatIdLoading, setChatIdLoading] = useState(false);
+  
+  // TeleBot Scanner Settings
+  const [telebotEnabled, setTelebotEnabled] = useState(true);
+  const [telebotLoading, setTelebotLoading] = useState(false);
+  const [telebotChatId, setTelebotChatId] = useState('');
+  const [telebotChatIdLoading, setTelebotChatIdLoading] = useState(false);
+  const [scannerRunning, setScannerRunning] = useState(false);
 
-  // Fetch telegram settings on mount
+  // Fetch settings on mount
   useEffect(() => {
     const fetchSettings = async () => {
-      const { data, error } = await supabase
+      // Future Signals settings
+      const { data: telegramData } = await supabase
         .from('app_settings')
         .select('value')
         .eq('id', 'telegram_auto_send')
         .maybeSingle();
       
-      if (!error && data) {
-        const value = data.value as { enabled?: boolean; chat_id?: string };
+      if (telegramData) {
+        const value = telegramData.value as { enabled?: boolean; chat_id?: string };
         setTelegramEnabled(value?.enabled !== false);
         setChatId(value?.chat_id || '');
+      }
+      
+      // TeleBot Scanner settings
+      const { data: telebotData } = await supabase
+        .from('app_settings')
+        .select('value')
+        .eq('id', 'telebot_scanner')
+        .maybeSingle();
+      
+      if (telebotData) {
+        const value = telebotData.value as { enabled?: boolean; chat_id?: string };
+        setTelebotEnabled(value?.enabled !== false);
+        setTelebotChatId(value?.chat_id || '');
       }
     };
     fetchSettings();
@@ -52,7 +75,7 @@ const Admin = () => {
       if (error) throw error;
       
       setTelegramEnabled(newValue);
-      toast.success(`Telegram auto-send ${newValue ? 'enabled' : 'disabled'}`);
+      toast.success(`Future Signals Telegram ${newValue ? 'enabled' : 'disabled'}`);
     } catch (err) {
       console.error(err);
       toast.error('Failed to update setting');
@@ -78,6 +101,73 @@ const Admin = () => {
       toast.error('Failed to save Chat ID');
     }
     setChatIdLoading(false);
+  };
+
+  const toggleTelebot = async () => {
+    setTelebotLoading(true);
+    try {
+      const newValue = !telebotEnabled;
+      const { error } = await supabase
+        .from('app_settings')
+        .upsert({ 
+          id: 'telebot_scanner', 
+          value: { enabled: newValue, chat_id: telebotChatId || undefined },
+          updated_at: new Date().toISOString()
+        });
+      
+      if (error) throw error;
+      
+      setTelebotEnabled(newValue);
+      toast.success(`TeleBot Scanner ${newValue ? 'enabled' : 'disabled'}`);
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to update setting');
+    }
+    setTelebotLoading(false);
+  };
+
+  const saveTelebotChatId = async () => {
+    setTelebotChatIdLoading(true);
+    try {
+      const { error } = await supabase
+        .from('app_settings')
+        .upsert({ 
+          id: 'telebot_scanner', 
+          value: { enabled: telebotEnabled, chat_id: telebotChatId || undefined },
+          updated_at: new Date().toISOString()
+        });
+      
+      if (error) throw error;
+      toast.success('TeleBot Chat ID saved!');
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to save Chat ID');
+    }
+    setTelebotChatIdLoading(false);
+  };
+
+  const runTelebotScanner = async () => {
+    setScannerRunning(true);
+    try {
+      toast.info('Starting TeleBot Scanner...');
+      
+      const { data, error } = await supabase.functions.invoke('telebot-scanner', {});
+      
+      if (error) throw error;
+      
+      if (data?.success) {
+        toast.success(data.message || 'Scanner completed!');
+        if (data.signals && data.signals.length > 0) {
+          toast.success(`Found ${data.signals.length} signals and sent to Telegram!`);
+        }
+      } else {
+        toast.error(data?.error || 'Scanner failed');
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to run scanner');
+    }
+    setScannerRunning(false);
   };
 
   // Loading states
@@ -143,13 +233,88 @@ const Admin = () => {
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8 max-w-4xl">
-        {/* Telegram Settings */}
-        <Card className="mb-6 bg-card/50 border-cyan-500/30">
+      <main className="container mx-auto px-4 py-8 max-w-4xl space-y-6">
+        
+        {/* TeleBot Scanner Settings */}
+        <Card className="bg-card/50 border-purple-500/30">
+          <CardContent className="p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Bot className="w-5 h-5 text-purple-400" />
+              <h2 className="text-lg font-bold text-foreground">TeleBot Scanner (24/7 Automation)</h2>
+            </div>
+            
+            <div className="space-y-4">
+              {/* Toggle */}
+              <div className="flex items-center justify-between bg-background/50 rounded-lg px-4 py-3">
+                <div className="flex items-center gap-3">
+                  <Bot className={`h-5 w-5 ${telebotEnabled ? 'text-purple-400' : 'text-muted-foreground'}`} />
+                  <span className="text-foreground">Enable TeleBot Scanner</span>
+                </div>
+                <Switch
+                  checked={telebotEnabled}
+                  onCheckedChange={toggleTelebot}
+                  disabled={telebotLoading}
+                  className="data-[state=checked]:bg-purple-500"
+                />
+              </div>
+
+              {/* Chat ID */}
+              <div className="bg-background/50 rounded-lg px-4 py-3">
+                <label className="block text-sm font-medium text-muted-foreground mb-2">
+                  TeleBot Telegram Chat ID
+                </label>
+                <div className="flex gap-2">
+                  <Input
+                    value={telebotChatId}
+                    onChange={(e) => setTelebotChatId(e.target.value)}
+                    placeholder="Enter channel/group chat ID"
+                    className="flex-1 bg-background"
+                  />
+                  <Button
+                    onClick={saveTelebotChatId}
+                    disabled={telebotChatIdLoading}
+                    variant="outline"
+                    className="border-purple-500/50 text-purple-500 hover:bg-purple-500/10"
+                  >
+                    {telebotChatIdLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Save'}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Leave empty to use default channel. Format: -1001234567890
+                </p>
+              </div>
+
+              {/* Manual Run Button */}
+              <Button
+                onClick={runTelebotScanner}
+                disabled={scannerRunning || !telebotEnabled}
+                className="w-full bg-purple-600 hover:bg-purple-700 text-white"
+              >
+                {scannerRunning ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Scanning All Pairs...
+                  </>
+                ) : (
+                  <>
+                    <Play className="w-4 h-4 mr-2" />
+                    Run Scanner Now
+                  </>
+                )}
+              </Button>
+              <p className="text-xs text-muted-foreground text-center">
+                Scans all pairs and sends signals with 75%+ confidence to Telegram
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Future Signals Telegram Settings */}
+        <Card className="bg-card/50 border-cyan-500/30">
           <CardContent className="p-6">
             <div className="flex items-center gap-2 mb-4">
               <Send className="w-5 h-5 text-cyan-400" />
-              <h2 className="text-lg font-bold text-foreground">Telegram Settings</h2>
+              <h2 className="text-lg font-bold text-foreground">Future Signals Telegram</h2>
             </div>
             
             <div className="space-y-4">
@@ -157,7 +322,7 @@ const Admin = () => {
               <div className="flex items-center justify-between bg-background/50 rounded-lg px-4 py-3">
                 <div className="flex items-center gap-3">
                   <Send className={`h-5 w-5 ${telegramEnabled ? 'text-cyan-400' : 'text-muted-foreground'}`} />
-                  <span className="text-foreground">Auto-Send Signals</span>
+                  <span className="text-foreground">Auto-Send Future Signals</span>
                 </div>
                 <Switch
                   checked={telegramEnabled}

@@ -97,12 +97,12 @@ const TeleBot = () => {
           <Card className="max-w-md w-full border-purple-500/30 bg-gradient-to-br from-purple-500/10 to-purple-500/5 bg-[#1e222d]">
             <CardContent className="p-8 text-center">
               <div className="p-4 rounded-full bg-purple-500/20 w-fit mx-auto mb-6">
-                <Wrench className="w-12 h-12 text-purple-500" />
+                <ShieldAlert className="w-12 h-12 text-purple-500" />
               </div>
-              <h2 className="text-2xl font-bold text-white mb-4">Under Maintenance</h2>
-              <p className="text-gray-400 mb-2">This feature is currently under maintenance and not available to the public.</p>
+              <h2 className="text-2xl font-bold text-white mb-4">Restricted Access</h2>
+              <p className="text-gray-400 mb-2">THIS FEATURE IS ONLY FOR TRADERS & AUTOMATIONS</p>
               <div className="mt-6 p-3 rounded-lg bg-purple-500/10 border border-purple-500/20">
-                <p className="text-xs text-purple-400">Status: <span className="font-semibold">Maintenance Mode</span></p>
+                <p className="text-xs text-purple-400">Status: <span className="font-semibold">Professional Access Required</span></p>
               </div>
               <Button onClick={() => navigate("/dashboard")} className="mt-6 bg-purple-500 hover:bg-purple-600">
                 Back to Dashboard

@@ -4,6 +4,7 @@ import { analyzeMarket } from '../services/technicalAnalysis';
 import { OHLC, SignalResponse } from '../types';
 import { AVAILABLE_SYMBOLS } from '../constants';
 import { playSuccessAlert } from '../services/audioService';
+import { supabase } from '@/integrations/supabase/client';
 
 interface SignalPanelProps {
   activeSymbol: string;
@@ -130,6 +131,30 @@ export const SignalPanel: React.FC<SignalPanelProps> = ({ activeSymbol, setActiv
 
               playSuccessAlert();
               onSignalFound(activeSymbol, analysis.signal, analysis.entryTime, "SIGNAL FOUND", 'default');
+
+              // Send signal to Telegram via edge function
+              const sendToTelegram = async () => {
+                try {
+                  const price = candles.length > 0 ? candles[candles.length - 1].close.toFixed(5) : "0.00000";
+                  await supabase.functions.invoke('send-signal-telegram', {
+                    body: {
+                      signals: [{
+                        pair: activeSymbol,
+                        signal_time: analysis.entryTime,
+                        direction: analysis.signal,
+                        price: price,
+                        confidence: analysis.confidence
+                      }],
+                      userType: 'TELEBOT',
+                      format: 'telebot'
+                    }
+                  });
+                  console.log('Signal sent to Telegram');
+                } catch (err) {
+                  console.error('Failed to send to Telegram:', err);
+                }
+              };
+              sendToTelegram();
 
               setWorkflowState('TRADED_COOLDOWN');
           } else {
