@@ -3,7 +3,6 @@ import { Button } from "@/components/ui/button";
 import { 
   BarChart3, 
   Zap, 
-  Trophy, 
   Crown, 
   Settings,
   Bot,
@@ -72,17 +71,6 @@ const Dashboard = () => {
                   <span className="hidden sm:inline">Admin</span>
                 </Button>
               )}
-              
-              {/* Results Link */}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => navigate("/results")}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                <Trophy className="w-4 h-4 mr-1 sm:mr-2" />
-                <span className="hidden sm:inline">Results</span>
-              </Button>
               
               {/* VIP / Pricing Link */}
               <Button
