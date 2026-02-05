@@ -9,7 +9,6 @@ import { Analytics } from "@vercel/analytics/react";
 // Lazy load pages for code splitting
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Auth = lazy(() => import("./pages/Auth"));
-const Results = lazy(() => import("./pages/Results"));
 const Pricing = lazy(() => import("./pages/Pricing"));
 const Admin = lazy(() => import("./pages/Admin"));
 const LiveBot = lazy(() => import("./pages/LiveBot"));
@@ -30,7 +29,6 @@ const App = () => (
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/live-bot" element={<LiveBot />} />
             <Route path="/auth" element={<Auth />} />
-            <Route path="/results" element={<Results />} />
             <Route path="/pricing" element={<Pricing />} />
             <Route path="/admin" element={<Admin />} />
             <Route path="/signal-bot" element={<SignalBot />} />

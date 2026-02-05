@@ -266,33 +266,6 @@ export type Database = {
         }
         Relationships: []
       }
-      submission_usage: {
-        Row: {
-          created_at: string
-          id: string
-          ip_address: string
-          submission_count: number
-          updated_at: string
-          usage_date: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          ip_address: string
-          submission_count?: number
-          updated_at?: string
-          usage_date?: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          ip_address?: string
-          submission_count?: number
-          updated_at?: string
-          usage_date?: string
-        }
-        Relationships: []
-      }
       subscriptions: {
         Row: {
           created_at: string
@@ -316,30 +289,6 @@ export type Database = {
           id?: string
           tier?: Database["public"]["Enums"]["subscription_tier"]
           updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
-      trade_results: {
-        Row: {
-          created_at: string
-          id: string
-          result: string
-          signal: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          result: string
-          signal: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          result?: string
-          signal?: string
           user_id?: string
         }
         Relationships: []
@@ -371,17 +320,6 @@ export type Database = {
     }
     Functions: {
       atomic_increment_ip_usage: {
-        Args: {
-          p_daily_limit: number
-          p_ip_address: string
-          p_usage_date: string
-        }
-        Returns: {
-          allowed: boolean
-          remaining: number
-        }[]
-      }
-      atomic_increment_submission: {
         Args: {
           p_daily_limit: number
           p_ip_address: string
@@ -440,15 +378,6 @@ export type Database = {
       }
       get_total_analysis_count: { Args: never; Returns: number }
       get_total_signals_generated: { Args: never; Returns: number }
-      get_trade_statistics: {
-        Args: never
-        Returns: {
-          accuracy: number
-          total_losses: number
-          total_trades: number
-          total_wins: number
-        }[]
-      }
       get_user_accuracy: {
         Args: { p_user_id: string }
         Returns: {
