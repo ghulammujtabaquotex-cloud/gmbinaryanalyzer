@@ -17,6 +17,3 @@ verify_jwt = false
 
 [functions.generate-signals]
 verify_jwt = false
-
-[functions.telebot-scanner]
-verify_jwt = false

@@ -177,31 +177,6 @@ const Dashboard = () => {
                 </Button>
               </div>
             </div>
-
-            {/* TELEBOT Card */}
-            <div 
-              onClick={() => navigate("/tele-bot")}
-              className="rounded-2xl border border-purple-500/30 bg-gradient-to-br from-purple-500/10 to-purple-500/5 backdrop-blur-sm p-6 cursor-pointer hover:border-purple-500/50 hover:shadow-[0_0_30px_-10px_rgba(168,85,247,0.4)] transition-all duration-300 md:col-span-2"
-            >
-              <div className="space-y-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-3 rounded-xl bg-purple-500/20">
-                    <Bot className="w-8 h-8 text-purple-500" />
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-bold text-foreground">TELEBOT</h3>
-                    <p className="text-sm text-purple-500">Telegram Bot</p>
-                  </div>
-                </div>
-                <p className="text-muted-foreground">
-                  Manage and control the Telegram bot for automated signal delivery and notifications.
-                </p>
-                <Button className="w-full bg-purple-500 hover:bg-purple-600 text-white">
-                  <Bot className="w-4 h-4 mr-2" />
-                  Open TELEBOT
-                </Button>
-              </div>
-            </div>
           </div>
         </div>
       </main>
