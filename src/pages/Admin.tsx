@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Loader2, Crown, Send } from 'lucide-react';
+import { ArrowLeft, Loader2, Crown, Send, Hash, Maximize2, Minimize2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
@@ -9,6 +9,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useAdmin } from '@/hooks/useAdmin';
 import { toast } from 'sonner';
+
+// Lazy load the GM Live Bot
+const GMLiveBot = lazy(() => import('@/gmlivebot/components/GMLiveBot'));
 
 const Admin = () => {
   const navigate = useNavigate();
@@ -20,6 +23,9 @@ const Admin = () => {
   const [telegramLoading, setTelegramLoading] = useState(false);
   const [chatId, setChatId] = useState('');
   const [chatIdLoading, setChatIdLoading] = useState(false);
+  
+  // GM Live Bot fullscreen state
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   // Fetch settings on mount
   useEffect(() => {
@@ -147,6 +153,46 @@ const Admin = () => {
       </header>
 
       <main className="container mx-auto px-4 py-8 max-w-4xl space-y-6">
+
+        {/* #TELE - GM Live Bot Section */}
+        <Card className="bg-card/50 border-green-500/30">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Hash className="w-5 h-5 text-green-400" />
+                <h2 className="text-lg font-bold text-foreground">TELE - GM Live Bot</h2>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsFullscreen(!isFullscreen)}
+                className="border-green-500/50 text-green-500 hover:bg-green-500/10"
+              >
+                {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+              </Button>
+            </div>
+            
+            <div className={`bg-black rounded-lg overflow-hidden border border-[#2a2e39] ${isFullscreen ? 'fixed inset-4 z-[100]' : 'h-[600px]'}`}>
+              {isFullscreen && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsFullscreen(false)}
+                  className="absolute top-2 right-2 z-[101] border-green-500/50 text-green-500 hover:bg-green-500/10"
+                >
+                  <Minimize2 className="w-4 h-4" />
+                </Button>
+              )}
+              <Suspense fallback={
+                <div className="h-full flex items-center justify-center bg-black">
+                  <Loader2 className="w-8 h-8 animate-spin text-green-500" />
+                </div>
+              }>
+                <GMLiveBot />
+              </Suspense>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Future Signals Telegram Settings */}
         <Card className="bg-card/50 border-cyan-500/30">
