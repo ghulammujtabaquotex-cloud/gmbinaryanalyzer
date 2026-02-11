@@ -225,10 +225,10 @@ function generateSignal(candles: Candle[], pair: string): Signal | null {
   const backtestRate = backtestTotal > 0 ? backtestWins / backtestTotal : 0.5;
 
   // ── Decision ──
-  const minScore = 5;
+  const minScore = 3;
   const scoreDiff = Math.abs(bullScore - bearScore);
 
-  if (scoreDiff < 2) return null; // Too close, no signal
+  if (scoreDiff < 1) return null; // Too close, no signal
 
   let direction: "CALL" | "PUT";
   let score: number;
@@ -245,11 +245,8 @@ function generateSignal(candles: Candle[], pair: string): Signal | null {
 
   // Confidence: base from score + backtest bonus
   const maxScore = 14;
-  let confidence = Math.round(60 + (score / maxScore) * 30 + backtestRate * 10);
-  confidence = Math.min(95, Math.max(60, confidence));
-
-  // Reject low-confidence signals
-  if (confidence < 65) return null;
+  let confidence = Math.round(55 + (score / maxScore) * 35 + backtestRate * 10);
+  confidence = Math.min(95, Math.max(55, confidence));
 
   // candle_time is UTC+6. Next signal = last candle + 1 min. Output in UTC+5 (subtract 1 hour).
   const lastCandleTime = backtestCandles[last].candle_time; // "2026-02-11 15:17:00" in UTC+6
