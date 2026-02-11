@@ -251,11 +251,31 @@ function generateSignal(candles: Candle[], pair: string): Signal | null {
   // Reject low-confidence signals
   if (confidence < 65) return null;
 
+  // candle_time is UTC+6. Next signal = last candle + 1 min. Output in UTC+5 (subtract 1 hour).
+  const lastCandleTime = backtestCandles[last].candle_time; // "2026-02-11 15:17:00" in UTC+6
+  const utc6Date = new Date(lastCandleTime.replace(' ', 'T') + '+06:00');
+  const nextSignalUtc = new Date(utc6Date.getTime() + 60_000); // +1 minute for future
+  // Convert to UTC+5
+  const utc5Offset = 5 * 60 * 60_000;
+  const utc5Date = new Date(nextSignalUtc.getTime() + utc5Offset - nextSignalUtc.getTimezoneOffset() * 0);
+  // Format as HH:mm
+  const utc5Actual = new Date(nextSignalUtc.getTime());
+  const hh = String(Math.floor((utc5Actual.getTime() % (24*3600000)) / 3600000 + 5) % 24).padStart(2, '0');
+  // Simpler: just format from UTC
+  const utcMs = nextSignalUtc.getTime();
+  const utc5Ms = utcMs + 5 * 3600000;
+  const d5 = new Date(utc5Ms);
+  const timeStr = d5.getUTCHours().toString().padStart(2, '0') + ':' + d5.getUTCMinutes().toString().padStart(2, '0');
+
+  const pairFormatted = pair.replace('_otc', '_OTC');
+  const formattedSignal = `M1;${timeStr};${pairFormatted};${direction}`;
+
   return {
     pair,
     direction,
     confidence,
-    signal_time: backtestCandles[last].candle_time,
+    signal_time: timeStr,
+    formatted: formattedSignal,
     indicators: {
       rsi: currentRSI.toFixed(1),
       macd: currentHist > 0 ? "Bullish" : "Bearish",
