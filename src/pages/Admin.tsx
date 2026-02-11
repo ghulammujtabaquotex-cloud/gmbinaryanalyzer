@@ -14,6 +14,7 @@ interface SignalResult {
   direction: 'CALL' | 'PUT';
   confidence: number;
   signal_time: string;
+  formatted: string;
   indicators: Record<string, string>;
 }
 
@@ -205,7 +206,22 @@ const Admin = () => {
               </div>
             )}
 
-            {/* Signals Results */}
+            {/* Formatted Signal Output */}
+            {signals.length > 0 && (
+              <div className="rounded-lg border border-amber-500/30 bg-black/30 p-4 font-mono text-sm space-y-1">
+                <p className="text-xs text-muted-foreground mb-2 font-sans">Signal Output (UTC+5)</p>
+                {signals.map((sig, i) => (
+                  <div
+                    key={i}
+                    className={sig.direction === 'CALL' ? 'text-emerald-400' : 'text-red-400'}
+                  >
+                    {sig.formatted}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Signals Results Cards */}
             {signals.length > 0 ? (
               <div className="grid gap-3 sm:grid-cols-2">
                 {signals.map((sig, i) => (
@@ -244,8 +260,8 @@ const Admin = () => {
                         </div>
                       ))}
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                      Signal Time: {sig.signal_time}
+                    <p className="text-xs text-muted-foreground font-mono">
+                      {sig.formatted}
                     </p>
                   </div>
                 ))}
