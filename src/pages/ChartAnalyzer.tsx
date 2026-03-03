@@ -25,14 +25,14 @@ import { useIPUsageTracking } from "@/hooks/useIPUsageTracking";
 import { toast } from "sonner";
 
 const PAIRS = [
-  "EURUSD_otc", "EURGBP_otc", "EURJPY_otc", "EURCAD_otc", "EURAUD_otc", "EURCHF_otc", "EURNZD_otc",
-  "GBPUSD_otc", "GBPJPY_otc", "GBPCAD_otc", "GBPAUD_otc", "GBPCHF_otc", "GBPNZD_otc",
-  "USDJPY_otc", "USDCAD_otc", "USDCHF_otc",
-  "AUDUSD_otc", "AUDCAD_otc", "AUDJPY_otc", "AUDCHF_otc", "AUDNZD_otc",
-  "NZDUSD_otc", "NZDJPY_otc", "NZDCAD_otc", "NZDCHF_otc",
-  "CADJPY_otc", "CADCHF_otc", "CHFJPY_otc",
-  "BRLUSD_otc",
-  "USDEGP_otc", "USDPKR_otc", "USDARS_otc",
+  "EURUSD-OTC", "EURGBP-OTC", "EURJPY-OTC", "EURCAD-OTC", "EURAUD-OTC", "EURCHF-OTC", "EURNZD-OTC",
+  "GBPUSD-OTC", "GBPJPY-OTC", "GBPCAD-OTC", "GBPAUD-OTC", "GBPCHF-OTC", "GBPNZD-OTC",
+  "USDJPY-OTC", "USDCAD-OTC", "USDCHF-OTC",
+  "AUDUSD-OTC", "AUDCAD-OTC", "AUDJPY-OTC", "AUDCHF-OTC", "AUDNZD-OTC",
+  "NZDUSD-OTC", "NZDJPY-OTC", "NZDCAD-OTC", "NZDCHF-OTC",
+  "CADJPY-OTC", "CADCHF-OTC", "CHFJPY-OTC",
+  "BRLUSD-OTC",
+  "USDEGP-OTC", "USDPKR-OTC", "USDARS-OTC", "USDBDT-OTC",
 ];
 
 interface AnalysisResult {
@@ -150,7 +150,7 @@ const ChartAnalyzer = () => {
                 <SelectContent className="max-h-60">
                   {PAIRS.map((pair) => (
                     <SelectItem key={pair} value={pair}>
-                      {pair.replace("_otc", " OTC").replace("_", "/")}
+                      {pair}
                     </SelectItem>
                   ))}
                 </SelectContent>
