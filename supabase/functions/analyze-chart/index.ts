@@ -66,6 +66,43 @@ Step 6: Confluence Scoring (out of 100):
 
 Return ONLY the JSON object, no markdown, no extra text.`;
 
+// Fetch with timeout and retry
+async function fetchWithRetry(url: string, maxRetries = 3, timeoutMs = 5000): Promise<Response> {
+  let lastError: Error | null = null;
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(`Fetch attempt ${attempt}/${maxRetries} for market data...`);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+      
+      const res = await fetch(url, { signal: controller.signal });
+      clearTimeout(timeoutId);
+      
+      if (res.ok) return res;
+      
+      const errText = await res.text();
+      lastError = new Error(`HTTP ${res.status}: ${errText}`);
+      console.error(`Attempt ${attempt} failed:`, lastError.message);
+    } catch (e) {
+      lastError = e instanceof Error ? e : new Error(String(e));
+      if (lastError.name === "AbortError") {
+        console.error(`Attempt ${attempt} timed out after ${timeoutMs}ms`);
+        lastError = new Error(`Request timed out after ${timeoutMs}ms`);
+      } else {
+        console.error(`Attempt ${attempt} error:`, lastError.message);
+      }
+    }
+    
+    // Wait 1s before retry (except last attempt)
+    if (attempt < maxRetries) {
+      await new Promise(r => setTimeout(r, 1000));
+    }
+  }
+  
+  throw lastError || new Error("All fetch attempts failed");
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -80,16 +117,15 @@ serve(async (req) => {
       });
     }
 
-    // Fetch market data from the quotex proxy API - NO extra headers
+    // Fetch market data with retry logic - NO extra headers
     const apiUrl = `https://ikszeynptbmwkaaldfad.supabase.co/functions/v1/quotex-proxy?symbol=${pair}&interval=1m&limit=100:qx_vzwz3wsu54chx8zmxpt0vp1yfk9gkxv0`;
     
-    console.log("Fetching market data for:", pair);
-    const marketRes = await fetch(apiUrl);
-    
-    if (!marketRes.ok) {
-      const errText = await marketRes.text();
-      console.error("Market API error:", marketRes.status, errText);
-      return new Response(JSON.stringify({ error: "Failed to fetch market data", details: errText }), {
+    let marketRes: Response;
+    try {
+      marketRes = await fetchWithRetry(apiUrl, 3, 5000);
+    } catch (e) {
+      console.error("All market data fetch attempts failed:", e);
+      return new Response(JSON.stringify({ error: "⚠️ MARKET DATA ERROR — Could not fetch market data after 3 attempts. Please try again later." }), {
         status: 502,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });

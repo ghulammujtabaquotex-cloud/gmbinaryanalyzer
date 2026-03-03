@@ -6,7 +6,9 @@ import {
   Crown, 
   Settings,
   Bot,
-  LogOut
+  LogOut,
+  Lock,
+  ExternalLink
 } from "lucide-react";
 import { useIPUsageTracking } from "@/hooks/useIPUsageTracking";
 import { useAuth } from "@/hooks/useAuth";
@@ -24,7 +26,6 @@ const Dashboard = () => {
     navigate("/");
   };
 
-  // Redirect to login if not authenticated
   useEffect(() => {
     if (!isLoading && !user) {
       navigate("/");
@@ -59,7 +60,6 @@ const Dashboard = () => {
               </div>
             </div>
             <div className="flex items-center gap-2 sm:gap-3">
-              {/* Admin Panel Link */}
               {isAdmin && (
                 <Button
                   variant="ghost"
@@ -72,7 +72,6 @@ const Dashboard = () => {
                 </Button>
               )}
               
-              {/* VIP / Pricing Link */}
               <Button
                 variant={isVip ? "ghost" : "outline"}
                 size="sm"
@@ -86,7 +85,6 @@ const Dashboard = () => {
                 <span className="hidden sm:inline">{isVip ? "VIP" : "Upgrade"}</span>
               </Button>
 
-              {/* Logout Button */}
               <Button
                 variant="ghost"
                 size="sm"
@@ -104,7 +102,6 @@ const Dashboard = () => {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8 max-w-5xl flex-1">
         <div className="space-y-8">
-          {/* Hero Section */}
           <div className="text-center space-y-4 py-4">
             <h2 className="text-3xl md:text-4xl font-bold text-foreground">
               Professional <span className="text-gradient">Trading Dashboard</span>
@@ -114,9 +111,8 @@ const Dashboard = () => {
             </p>
           </div>
 
-          {/* Trading Tools Grid */}
           <div className="grid md:grid-cols-3 gap-6 mt-8">
-            {/* Chart AI Analyzer Card */}
+            {/* Chart AI Analyzer Card - ACTIVE */}
             <div 
               onClick={() => navigate("/chart-analyzer")}
               className="rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/10 to-primary/5 backdrop-blur-sm p-6 cursor-pointer hover:border-primary/50 hover:shadow-[0_0_30px_-10px_hsl(var(--primary)/0.4)] transition-all duration-300"
@@ -141,52 +137,72 @@ const Dashboard = () => {
               </div>
             </div>
 
-            {/* FUTURE BOT Card (formerly Signal Bot) */}
-            <div 
-              onClick={() => navigate("/signal-bot")}
-              className="rounded-2xl border border-amber-500/30 bg-gradient-to-br from-amber-500/10 to-amber-500/5 backdrop-blur-sm p-6 cursor-pointer hover:border-amber-500/50 hover:shadow-[0_0_30px_-10px_rgba(245,158,11,0.4)] transition-all duration-300"
-            >
+            {/* FUTURE BOT Card - DISABLED */}
+            <div className="rounded-2xl border border-border/30 bg-gradient-to-br from-muted/30 to-muted/10 backdrop-blur-sm p-6 opacity-60 relative overflow-hidden">
+              <div className="absolute inset-0 bg-background/40 backdrop-blur-[2px] z-10 flex flex-col items-center justify-center gap-3 p-4">
+                <Lock className="w-8 h-8 text-muted-foreground" />
+                <p className="text-sm font-semibold text-muted-foreground text-center">Currently Disabled</p>
+                <a 
+                  href="https://t.me/BINARYSUPPORT" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline"
+                >
+                  Contact Admin @BINARYSUPPORT
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              </div>
               <div className="space-y-4">
                 <div className="flex items-center gap-3">
-                  <div className="p-3 rounded-xl bg-amber-500/20">
-                    <Zap className="w-8 h-8 text-amber-500" />
+                  <div className="p-3 rounded-xl bg-muted/30">
+                    <Zap className="w-8 h-8 text-muted-foreground" />
                   </div>
                   <div>
-                    <h3 className="text-xl font-bold text-foreground">FUTURE BOT</h3>
-                    <p className="text-sm text-amber-500">Future Signals</p>
+                    <h3 className="text-xl font-bold text-muted-foreground">FUTURE BOT</h3>
+                    <p className="text-sm text-muted-foreground">Future Signals</p>
                   </div>
                 </div>
-                <p className="text-muted-foreground">
+                <p className="text-muted-foreground/60">
                   Access the future signal generator for AI-powered trading predictions and market analysis.
                 </p>
-                <Button className="w-full bg-amber-500 hover:bg-amber-600 text-black font-semibold">
+                <Button disabled className="w-full" variant="secondary">
                   <Zap className="w-4 h-4 mr-2" />
-                  Open FUTURE BOT
+                  Disabled
                 </Button>
               </div>
             </div>
 
-            {/* LIVE BOT Card */}
-            <div 
-              onClick={() => navigate("/live-bot")}
-              className="rounded-2xl border border-cyan-500/30 bg-gradient-to-br from-cyan-500/10 to-cyan-500/5 backdrop-blur-sm p-6 cursor-pointer hover:border-cyan-500/50 hover:shadow-[0_0_30px_-10px_rgba(6,182,212,0.4)] transition-all duration-300"
-            >
+            {/* LIVE BOT Card - DISABLED */}
+            <div className="rounded-2xl border border-border/30 bg-gradient-to-br from-muted/30 to-muted/10 backdrop-blur-sm p-6 opacity-60 relative overflow-hidden">
+              <div className="absolute inset-0 bg-background/40 backdrop-blur-[2px] z-10 flex flex-col items-center justify-center gap-3 p-4">
+                <Lock className="w-8 h-8 text-muted-foreground" />
+                <p className="text-sm font-semibold text-muted-foreground text-center">Currently Disabled</p>
+                <a 
+                  href="https://t.me/BINARYSUPPORT" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline"
+                >
+                  Contact Admin @BINARYSUPPORT
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              </div>
               <div className="space-y-4">
                 <div className="flex items-center gap-3">
-                  <div className="p-3 rounded-xl bg-cyan-500/20">
-                    <Bot className="w-8 h-8 text-cyan-500" />
+                  <div className="p-3 rounded-xl bg-muted/30">
+                    <Bot className="w-8 h-8 text-muted-foreground" />
                   </div>
                   <div>
-                    <h3 className="text-xl font-bold text-foreground">LIVE BOT</h3>
-                    <p className="text-sm text-cyan-500">Real-Time Trading</p>
+                    <h3 className="text-xl font-bold text-muted-foreground">LIVE BOT</h3>
+                    <p className="text-sm text-muted-foreground">Real-Time Trading</p>
                   </div>
                 </div>
-                <p className="text-muted-foreground">
-                  Access our advanced live trading bot with real-time market analysis, automated signals, and instant execution.
+                <p className="text-muted-foreground/60">
+                  Access our advanced live trading bot with real-time market analysis.
                 </p>
-                <Button className="w-full bg-cyan-500 hover:bg-cyan-600 text-white">
+                <Button disabled className="w-full" variant="secondary">
                   <Bot className="w-4 h-4 mr-2" />
-                  Launch Bot
+                  Disabled
                 </Button>
               </div>
             </div>
