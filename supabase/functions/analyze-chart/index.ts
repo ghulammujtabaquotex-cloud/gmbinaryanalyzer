@@ -96,7 +96,8 @@ serve(async (req) => {
     }
 
     const marketData = await marketRes.json();
-    console.log("Market data received, candles:", Array.isArray(marketData) ? marketData.length : "not array");
+    const candles = marketData.candles || marketData;
+    console.log("Market data received, candles:", Array.isArray(candles) ? candles.length : "not array");
 
     // Send to Lovable AI for analysis
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
@@ -107,10 +108,10 @@ serve(async (req) => {
       });
     }
 
-    const userPrompt = `Analyze this ${pair} 1-minute candlestick data (100 candles) and provide a trading signal.
+    const userPrompt = `Analyze this ${pair} 1-minute candlestick data (${Array.isArray(candles) ? candles.length : '?'} candles) and provide a trading signal.
 
-Market Data (JSON array of candles):
-${JSON.stringify(marketData)}
+Market Data (JSON array of OHLCV candles):
+${JSON.stringify(candles)}
 
 Analyze using the 6-step method and return the JSON response.`;
 
