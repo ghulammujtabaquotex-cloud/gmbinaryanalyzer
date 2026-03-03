@@ -19,6 +19,9 @@ import {
   ShieldCheck,
   Activity,
   Target,
+  Sparkles,
+  Clock,
+  Cpu,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useIPUsageTracking } from "@/hooks/useIPUsageTracking";
@@ -86,7 +89,6 @@ const ChartAnalyzer = () => {
 
       if (data?.analysis) {
         setAnalysis(data.analysis);
-        // Only count usage for CALL/PUT signals
         if (data.analysis.signal !== "NEUTRAL") {
           refetch();
         }
@@ -104,10 +106,10 @@ const ChartAnalyzer = () => {
     return "text-yellow-400";
   };
 
-  const getSignalIcon = (signal: string) => {
-    if (signal === "CALL") return <TrendingUp className="w-8 h-8" />;
-    if (signal === "PUT") return <TrendingDown className="w-8 h-8" />;
-    return <Minus className="w-8 h-8" />;
+  const getSignalBg = (signal: string) => {
+    if (signal === "CALL") return "from-emerald-500/20 to-emerald-500/5 border-emerald-500/40";
+    if (signal === "PUT") return "from-red-500/20 to-red-500/5 border-red-500/40";
+    return "from-yellow-500/20 to-yellow-500/5 border-yellow-500/40";
   };
 
   const getConfidenceColor = (confidence: number) => {
@@ -116,40 +118,57 @@ const ChartAnalyzer = () => {
     return "text-muted-foreground";
   };
 
+  const getConfidenceBar = (confidence: number) => {
+    if (confidence >= 76) return "bg-emerald-500";
+    if (confidence >= 60) return "bg-yellow-500";
+    return "bg-muted-foreground";
+  };
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <header className="border-b border-border/50 backdrop-blur-sm sticky top-0 z-50 bg-background/80">
+      {/* Header */}
+      <header className="border-b border-border/50 backdrop-blur-xl sticky top-0 z-50 bg-background/90">
         <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard")}>
-              <ArrowLeft className="w-5 h-5" />
-            </Button>
-            <div className="p-2 rounded-lg bg-primary/10">
-              <BarChart3 className="w-6 h-6 text-primary" />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard")} className="rounded-xl">
+                <ArrowLeft className="w-5 h-5" />
+              </Button>
+              <div className="p-2.5 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/20">
+                <Cpu className="w-6 h-6 text-primary" />
+              </div>
+              <div>
+                <h1 className="text-lg font-bold text-foreground tracking-tight">GM Chart AI</h1>
+                <p className="text-[11px] text-muted-foreground font-medium tracking-wide uppercase">
+                  AI-Powered Analysis Engine
+                </p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-xl font-bold text-foreground">Chart AI Analyzer</h1>
-              <p className="text-xs text-muted-foreground">
-                AI-Powered Market Analysis
-              </p>
+            <div className="flex items-center gap-2">
+              <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20">
+                <Sparkles className="w-3.5 h-3.5 text-primary" />
+                <span className="text-xs font-semibold text-primary">LIVE</span>
+              </div>
             </div>
           </div>
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-6 max-w-2xl flex-1 space-y-6">
-        {/* Pair Selection & Analyze */}
-        <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
-          <CardContent className="p-6 space-y-4">
+      <main className="container mx-auto px-4 py-6 max-w-2xl flex-1 space-y-5">
+        {/* Analysis Control Card */}
+        <Card className="border-border/50 bg-gradient-to-b from-card to-card/50 backdrop-blur-sm overflow-hidden">
+          <div className="h-1 w-full bg-gradient-to-r from-primary via-primary/60 to-primary/20" />
+          <CardContent className="p-5 space-y-5">
+            {/* Pair Selector */}
             <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">Select Currency Pair</label>
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Currency Pair</label>
               <Select value={selectedPair} onValueChange={setSelectedPair}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Choose a pair..." />
+                <SelectTrigger className="w-full h-12 text-base font-semibold rounded-xl border-border/60 bg-background/60">
+                  <SelectValue placeholder="Select a pair to analyze..." />
                 </SelectTrigger>
-                <SelectContent className="max-h-60">
+                <SelectContent className="max-h-72">
                   {PAIRS.map((pair) => (
-                    <SelectItem key={pair} value={pair}>
+                    <SelectItem key={pair} value={pair} className="font-medium">
                       {pair}
                     </SelectItem>
                   ))}
@@ -157,33 +176,41 @@ const ChartAnalyzer = () => {
               </Select>
             </div>
 
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">
-                {isVip ? (
-                  <span className="text-primary font-medium">♛ VIP — Unlimited</span>
-                ) : (
-                  `${remaining} analyses remaining today`
-                )}
-              </span>
+            {/* Usage Info */}
+            <div className="flex items-center justify-between px-1">
+              <div className="flex items-center gap-2 text-sm">
+                <Clock className="w-3.5 h-3.5 text-muted-foreground" />
+                <span className="text-muted-foreground">
+                  {isVip ? (
+                    <span className="text-primary font-semibold">♛ VIP — Unlimited</span>
+                  ) : (
+                    <>{remaining} / {remaining + (100 - remaining)} remaining</>
+                  )}
+                </span>
+              </div>
+              <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                Market Open
+              </div>
             </div>
 
+            {/* Analyze Button */}
             <Button
               onClick={handleAnalyze}
               disabled={isAnalyzing || !selectedPair || (limitReached && !isVip)}
-              variant="analyze"
               size="lg"
-              className="w-full"
+              className="w-full h-14 text-base font-bold rounded-xl bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-primary-foreground shadow-[0_0_40px_-8px_hsl(var(--primary)/0.5)] transition-all duration-300"
             >
               {isAnalyzing ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin mr-2" />
-                  Analyzing Market Data...
-                </>
+                <div className="flex items-center gap-3">
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span>Analyzing {selectedPair}...</span>
+                </div>
               ) : (
-                <>
-                  <BarChart3 className="w-5 h-5 mr-2" />
-                  Analyze {selectedPair ? selectedPair.replace("_otc", " OTC") : "Pair"}
-                </>
+                <div className="flex items-center gap-3">
+                  <BarChart3 className="w-5 h-5" />
+                  <span>Analyze {selectedPair || "Pair"}</span>
+                </div>
               )}
             </Button>
           </CardContent>
@@ -191,74 +218,106 @@ const ChartAnalyzer = () => {
 
         {/* Analysis Result */}
         {analysis && (
-          <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            {/* Signal Card */}
-            <Card className={`border-2 ${
-              analysis.signal === "CALL" ? "border-emerald-500/50 bg-emerald-500/5" :
-              analysis.signal === "PUT" ? "border-red-500/50 bg-red-500/5" :
-              "border-yellow-500/50 bg-yellow-500/5"
-            }`}>
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-1">
-                    <p className="text-sm text-muted-foreground">Signal</p>
-                    <div className={`text-4xl font-black ${getSignalColor(analysis.signal)}`}>
-                      {analysis.signal}
+          <div className="space-y-4 animate-in fade-in slide-in-from-bottom-6 duration-700">
+            {/* Signal Hero Card */}
+            <Card className={`border-2 bg-gradient-to-br ${getSignalBg(analysis.signal)} overflow-hidden`}>
+              <CardContent className="p-0">
+                <div className="p-6 pb-4">
+                  <div className="flex items-start justify-between">
+                    <div className="space-y-2">
+                      <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">Signal Result</p>
+                      <div className="flex items-center gap-3">
+                        <div className={`p-2.5 rounded-xl ${
+                          analysis.signal === "CALL" ? "bg-emerald-500/20" :
+                          analysis.signal === "PUT" ? "bg-red-500/20" : "bg-yellow-500/20"
+                        }`}>
+                          {analysis.signal === "CALL" ? <TrendingUp className="w-7 h-7 text-emerald-400" /> :
+                           analysis.signal === "PUT" ? <TrendingDown className="w-7 h-7 text-red-400" /> :
+                           <Minus className="w-7 h-7 text-yellow-400" />}
+                        </div>
+                        <div>
+                          <div className={`text-4xl font-black tracking-tight ${getSignalColor(analysis.signal)}`}>
+                            {analysis.signal}
+                          </div>
+                          <p className="text-sm text-muted-foreground font-medium">{selectedPair}</p>
+                        </div>
+                      </div>
                     </div>
-                    <p className="text-sm text-muted-foreground">
-                      {selectedPair.replace("_otc", " OTC")}
-                    </p>
-                  </div>
-                  <div className="text-right space-y-1">
-                    <div className={`text-5xl font-black ${getConfidenceColor(analysis.confidence)}`}>
-                      {analysis.confidence}%
+                    <div className="text-right space-y-1">
+                      <div className={`text-5xl font-black tracking-tighter ${getConfidenceColor(analysis.confidence)}`}>
+                        {analysis.confidence}%
+                      </div>
+                      <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Confidence</p>
+                      <div className="w-24 h-2 rounded-full bg-muted/30 overflow-hidden ml-auto">
+                        <div 
+                          className={`h-full rounded-full ${getConfidenceBar(analysis.confidence)} transition-all duration-1000`} 
+                          style={{ width: `${analysis.confidence}%` }} 
+                        />
+                      </div>
                     </div>
-                    <p className="text-xs text-muted-foreground">Confidence</p>
                   </div>
+                </div>
+                {/* Trend Banner */}
+                <div className="px-6 py-3 bg-background/40 border-t border-border/30 flex items-center justify-between">
+                  <span className="text-xs font-semibold text-muted-foreground">TREND</span>
+                  <span className={`text-sm font-bold ${
+                    analysis.trend === "BULLISH" ? "text-emerald-400" :
+                    analysis.trend === "BEARISH" ? "text-red-400" : "text-muted-foreground"
+                  }`}>{analysis.trend}</span>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Technical Details */}
-            <Card className="border-border/50 bg-card/50">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
+            {/* Technical Indicators Grid */}
+            <Card className="border-border/50 bg-card/80 backdrop-blur-sm">
+              <CardHeader className="pb-2 px-5 pt-5">
+                <CardTitle className="text-sm flex items-center gap-2 font-semibold">
                   <Activity className="w-4 h-4 text-primary" />
                   Technical Indicators
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="rounded-lg bg-muted/30 p-3">
-                    <p className="text-xs text-muted-foreground">Trend</p>
-                    <p className="font-semibold text-foreground">{analysis.trend}</p>
+              <CardContent className="px-5 pb-5 space-y-3">
+                <div className="grid grid-cols-2 gap-2.5">
+                  <div className="rounded-xl bg-muted/20 border border-border/30 p-3.5 space-y-1">
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">EMA Cross</p>
+                    <p className={`text-sm font-bold capitalize ${
+                      analysis.ema_status === "bullish" ? "text-emerald-400" :
+                      analysis.ema_status === "bearish" ? "text-red-400" : "text-muted-foreground"
+                    }`}>{analysis.ema_status}</p>
                   </div>
-                  <div className="rounded-lg bg-muted/30 p-3">
-                    <p className="text-xs text-muted-foreground">EMA Status</p>
-                    <p className="font-semibold text-foreground capitalize">{analysis.ema_status}</p>
+                  <div className="rounded-xl bg-muted/20 border border-border/30 p-3.5 space-y-1">
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">RSI (14)</p>
+                    <p className={`text-sm font-bold ${
+                      analysis.rsi_status === "oversold" ? "text-emerald-400" :
+                      analysis.rsi_status === "overbought" ? "text-red-400" : "text-muted-foreground"
+                    }`}>{analysis.rsi_value} — <span className="capitalize">{analysis.rsi_status}</span></p>
                   </div>
-                  <div className="rounded-lg bg-muted/30 p-3">
-                    <p className="text-xs text-muted-foreground">RSI ({analysis.rsi_value})</p>
-                    <p className="font-semibold text-foreground capitalize">{analysis.rsi_status}</p>
+                  <div className="rounded-xl bg-muted/20 border border-border/30 p-3.5 space-y-1">
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">MACD</p>
+                    <p className={`text-sm font-bold capitalize ${
+                      analysis.macd_status === "bullish" ? "text-emerald-400" :
+                      analysis.macd_status === "bearish" ? "text-red-400" : "text-muted-foreground"
+                    }`}>{analysis.macd_status}</p>
                   </div>
-                  <div className="rounded-lg bg-muted/30 p-3">
-                    <p className="text-xs text-muted-foreground">MACD</p>
-                    <p className="font-semibold text-foreground capitalize">{analysis.macd_status}</p>
+                  <div className="rounded-xl bg-muted/20 border border-border/30 p-3.5 space-y-1">
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Momentum</p>
+                    <p className="text-sm font-bold text-foreground">{analysis.trend === "SIDEWAYS" ? "Weak" : "Active"}</p>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="rounded-lg bg-muted/30 p-3">
-                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                {/* S/R Levels */}
+                <div className="grid grid-cols-2 gap-2.5">
+                  <div className="rounded-xl bg-emerald-500/5 border border-emerald-500/20 p-3.5 space-y-1">
+                    <p className="text-[10px] font-semibold text-emerald-400/70 uppercase tracking-wider flex items-center gap-1">
                       <Target className="w-3 h-3" /> Support
                     </p>
-                    <p className="font-semibold text-emerald-400">{analysis.support_zone}</p>
+                    <p className="text-sm font-bold text-emerald-400">{analysis.support_zone}</p>
                   </div>
-                  <div className="rounded-lg bg-muted/30 p-3">
-                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  <div className="rounded-xl bg-red-500/5 border border-red-500/20 p-3.5 space-y-1">
+                    <p className="text-[10px] font-semibold text-red-400/70 uppercase tracking-wider flex items-center gap-1">
                       <Target className="w-3 h-3" /> Resistance
                     </p>
-                    <p className="font-semibold text-red-400">{analysis.resistance_zone}</p>
+                    <p className="text-sm font-bold text-red-400">{analysis.resistance_zone}</p>
                   </div>
                 </div>
               </CardContent>
@@ -266,17 +325,17 @@ const ChartAnalyzer = () => {
 
             {/* Patterns */}
             {analysis.patterns_detected?.length > 0 && (
-              <Card className="border-border/50 bg-card/50">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base flex items-center gap-2">
+              <Card className="border-border/50 bg-card/80 backdrop-blur-sm">
+                <CardHeader className="pb-2 px-5 pt-5">
+                  <CardTitle className="text-sm flex items-center gap-2 font-semibold">
                     <ShieldCheck className="w-4 h-4 text-primary" />
                     Patterns Detected
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="px-5 pb-5">
                   <div className="flex flex-wrap gap-2">
                     {analysis.patterns_detected.map((p, i) => (
-                      <span key={i} className="px-3 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary border border-primary/20">
+                      <span key={i} className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-primary/10 text-primary border border-primary/20">
                         {p}
                       </span>
                     ))}
@@ -286,11 +345,17 @@ const ChartAnalyzer = () => {
             )}
 
             {/* Explanation */}
-            <Card className="border-border/50 bg-card/50">
-              <CardContent className="p-6">
-                <p className="text-sm text-muted-foreground leading-relaxed">{analysis.explanation}</p>
+            <Card className="border-border/50 bg-card/80 backdrop-blur-sm">
+              <CardContent className="p-5">
+                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">AI Analysis Summary</p>
+                <p className="text-sm text-foreground/80 leading-relaxed">{analysis.explanation}</p>
               </CardContent>
             </Card>
+
+            {/* Disclaimer */}
+            <p className="text-center text-[10px] text-muted-foreground/60 px-4">
+              ⚠️ Trading signals are for educational purposes only. Past performance does not guarantee future results.
+            </p>
           </div>
         )}
       </main>
