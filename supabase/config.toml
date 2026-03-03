@@ -12,3 +12,6 @@ verify_jwt = false
 [functions.send-signal-telegram]
 verify_jwt = false
 
+[functions.analyze-chart]
+verify_jwt = false
+
