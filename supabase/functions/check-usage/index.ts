@@ -2,7 +2,8 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const FREE_DAILY_LIMIT = 3;
-const VIP_DAILY_LIMIT = 20;
+const VIP_DAILY_LIMIT = 10;
+const ADMIN_DAILY_LIMIT = 999999; // Unlimited
 
 // Special IP overrides - custom limits for specific users
 const IP_LIMIT_OVERRIDES: Record<string, number> = {
@@ -38,40 +39,39 @@ const getClientIP = (req: Request): string => {
 };
 
 // Check if user is VIP from their auth token
-const checkVipStatus = async (
+const checkUserStatus = async (
   supabaseUrl: string,
   anonKey: string,
+  serviceRoleKey: string,
   authHeader: string | null
-): Promise<{ isVip: boolean; userId: string | null }> => {
+): Promise<{ isVip: boolean; isAdmin: boolean; userId: string | null }> => {
   if (!authHeader) {
-    return { isVip: false, userId: null };
+    return { isVip: false, isAdmin: false, userId: null };
   }
 
   try {
-    // Create client with user's auth token
     const supabase = createClient(supabaseUrl, anonKey, {
       global: { headers: { Authorization: authHeader } }
     });
 
-    // Get the user
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     if (userError || !user) {
-      return { isVip: false, userId: null };
+      return { isVip: false, isAdmin: false, userId: null };
     }
 
-    // Check VIP status using the is_vip function
-    const { data: isVip, error: vipError } = await supabase
+    // Use service role to check roles/vip (bypasses RLS)
+    const adminClient = createClient(supabaseUrl, serviceRoleKey);
+
+    const { data: isVip } = await adminClient
       .rpc('is_vip', { _user_id: user.id });
 
-    if (vipError) {
-      console.error("Error checking VIP status:", vipError);
-      return { isVip: false, userId: user.id };
-    }
+    const { data: isAdmin } = await adminClient
+      .rpc('has_role', { _user_id: user.id, _role: 'admin' });
 
-    return { isVip: !!isVip, userId: user.id };
+    return { isVip: !!isVip, isAdmin: !!isAdmin, userId: user.id };
   } catch (err) {
-    console.error("Error in checkVipStatus:", err);
-    return { isVip: false, userId: null };
+    console.error("Error in checkUserStatus:", err);
+    return { isVip: false, isAdmin: false, userId: null };
   }
 };
 
@@ -98,17 +98,20 @@ serve(async (req) => {
 
     console.log("Checking usage for IP:", clientIP.slice(0, 10) + "***");
 
-    // Check VIP status from auth header
+    // Check user status from auth header
     const authHeader = req.headers.get("authorization");
-    const { isVip } = await checkVipStatus(SUPABASE_URL, SUPABASE_ANON_KEY, authHeader);
+    const { isVip, isAdmin } = await checkUserStatus(SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, authHeader);
     
-    // Check for IP-specific override first, then VIP status
+    // Determine daily limit: Admin > IP override > VIP > Free
     let dailyLimit: number;
     const hasIpOverride = clientIP in IP_LIMIT_OVERRIDES;
     
-    if (hasIpOverride) {
+    if (isAdmin) {
+      dailyLimit = ADMIN_DAILY_LIMIT;
+      console.log(`Admin user: Unlimited`);
+    } else if (hasIpOverride) {
       dailyLimit = IP_LIMIT_OVERRIDES[clientIP];
-      console.log(`Special IP override for ${clientIP.slice(0, 10)}***: Limit = ${dailyLimit}`);
+      console.log(`Special IP override: Limit = ${dailyLimit}`);
     } else {
       dailyLimit = isVip ? VIP_DAILY_LIMIT : FREE_DAILY_LIMIT;
       console.log(`User type: ${isVip ? 'VIP' : 'FREE'}, Daily limit: ${dailyLimit}`);
@@ -142,7 +145,8 @@ serve(async (req) => {
           remaining: dailyLimit, 
           canAnalyze: true,
           dailyLimit: dailyLimit,
-          isVip
+          isVip,
+          isAdmin
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
@@ -157,7 +161,8 @@ serve(async (req) => {
           remaining: result[0].remaining,
           canAnalyze: result[0].can_analyze,
           dailyLimit: dailyLimit,
-          isVip
+          isVip,
+          isAdmin
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
@@ -170,7 +175,8 @@ serve(async (req) => {
         remaining: dailyLimit, 
         canAnalyze: true,
         dailyLimit: dailyLimit,
-        isVip
+        isVip,
+        isAdmin
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
@@ -183,7 +189,8 @@ serve(async (req) => {
         remaining: FREE_DAILY_LIMIT, 
         canAnalyze: true,
         dailyLimit: FREE_DAILY_LIMIT,
-        isVip: false
+        isVip: false,
+        isAdmin: false
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

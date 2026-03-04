@@ -57,15 +57,15 @@ const ChartAnalyzer = () => {
   const [selectedPair, setSelectedPair] = useState("");
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const { canAnalyze, remaining, isVip, limitReached, refetch } = useIPUsageTracking();
+  const { canAnalyze, remaining, dailyLimit, isVip, isAdmin, limitReached, refetch } = useIPUsageTracking();
 
   const handleAnalyze = async () => {
     if (!selectedPair) {
       toast.error("Please select a currency pair");
       return;
     }
-    if (!canAnalyze && !isVip) {
-      toast.error("Daily analysis limit reached. Upgrade to VIP for unlimited access.");
+    if (!canAnalyze) {
+      toast.error("Daily analysis limit reached. Upgrade to VIP for more access.");
       return;
     }
 
@@ -181,10 +181,12 @@ const ChartAnalyzer = () => {
               <div className="flex items-center gap-2 text-sm">
                 <Clock className="w-3.5 h-3.5 text-muted-foreground" />
                 <span className="text-muted-foreground">
-                  {isVip ? (
-                    <span className="text-primary font-semibold">♛ VIP — Unlimited</span>
+                  {isAdmin ? (
+                    <span className="text-primary font-semibold">👑 Admin — Unlimited</span>
+                  ) : isVip ? (
+                    <span className="text-primary font-semibold">♛ VIP — {remaining} / {dailyLimit}</span>
                   ) : (
-                    <>{remaining} / {remaining + (100 - remaining)} remaining</>
+                    <>{remaining} / {dailyLimit} remaining</>
                   )}
                 </span>
               </div>
@@ -197,7 +199,7 @@ const ChartAnalyzer = () => {
             {/* Analyze Button */}
             <Button
               onClick={handleAnalyze}
-              disabled={isAnalyzing || !selectedPair || (limitReached && !isVip)}
+              disabled={isAnalyzing || !selectedPair || (!canAnalyze)}
               size="lg"
               className="w-full h-14 text-base font-bold rounded-xl bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-primary-foreground shadow-[0_0_40px_-8px_hsl(var(--primary)/0.5)] transition-all duration-300"
             >
