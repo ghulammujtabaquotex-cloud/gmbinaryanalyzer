@@ -5,10 +5,8 @@ const FREE_DAILY_LIMIT = 3;
 const VIP_DAILY_LIMIT = 10;
 const ADMIN_DAILY_LIMIT = 999999; // Unlimited
 
-// Special IP overrides - custom limits for specific users
-const IP_LIMIT_OVERRIDES: Record<string, number> = {
-  "202.47.55.98": 100,
-};
+// Special IP overrides - custom limits for specific users (empty = use role-based limits)
+const IP_LIMIT_OVERRIDES: Record<string, number> = {};
 
 // CORS configuration - allow all lovable preview domains
 const corsHeaders = {
