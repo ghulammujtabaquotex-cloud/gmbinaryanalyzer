@@ -10,6 +10,7 @@ export const useIPUsageTracking = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [limitReached, setLimitReached] = useState(false);
   const [isVip, setIsVip] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   const fetchUsage = useCallback(async () => {
     try {
@@ -24,6 +25,7 @@ export const useIPUsageTracking = () => {
         setUsageCount(0);
         setLimitReached(false);
         setIsVip(false);
+        setIsAdmin(false);
         setDailyLimit(PAYMENT_CONFIG.freeDailyLimit);
         return;
       }
@@ -31,11 +33,13 @@ export const useIPUsageTracking = () => {
       if (data) {
         const serverDailyLimit = data.dailyLimit ?? PAYMENT_CONFIG.freeDailyLimit;
         const serverIsVip = data.isVip ?? false;
+        const serverIsAdmin = data.isAdmin ?? false;
         const serverUsageCount = data.usageCount ?? 0;
         
         setUsageCount(serverUsageCount);
         setDailyLimit(serverDailyLimit);
         setIsVip(serverIsVip);
+        setIsAdmin(serverIsAdmin);
         setLimitReached(serverUsageCount >= serverDailyLimit);
         
         if (import.meta.env.DEV) {
@@ -54,6 +58,7 @@ export const useIPUsageTracking = () => {
       setUsageCount(0);
       setLimitReached(false);
       setIsVip(false);
+      setIsAdmin(false);
       setDailyLimit(PAYMENT_CONFIG.freeDailyLimit);
     } finally {
       setIsLoading(false);
@@ -86,9 +91,10 @@ export const useIPUsageTracking = () => {
     remaining: dailyLimit - usageCount,
     dailyLimit,
     isLoading,
-    canAnalyze: !limitReached && usageCount < dailyLimit,
-    limitReached,
+    canAnalyze: isAdmin || (!limitReached && usageCount < dailyLimit),
+    limitReached: isAdmin ? false : limitReached,
     isVip,
+    isAdmin,
     updateFromResponse,
     refetch,
   };
