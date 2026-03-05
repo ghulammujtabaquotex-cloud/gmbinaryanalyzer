@@ -84,14 +84,14 @@ const ChartAnalyzer = () => {
 
       if (data?.error) {
         toast.error(data.error);
+        if (data.limitReached) refetch();
         return;
       }
 
       if (data?.analysis) {
         setAnalysis(data.analysis);
-        if (data.analysis.signal !== "NEUTRAL") {
-          refetch();
-        }
+        // Always refetch usage after successful analysis since backend incremented it
+        refetch();
       }
     } catch (e) {
       toast.error("⚠️ Analysis unavailable - AI API not responding.");

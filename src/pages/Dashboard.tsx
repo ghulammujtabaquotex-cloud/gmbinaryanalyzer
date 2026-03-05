@@ -137,37 +137,27 @@ const Dashboard = () => {
               </div>
             </div>
 
-            {/* FUTURE BOT Card - DISABLED */}
-            <div className="rounded-2xl border border-border/30 bg-gradient-to-br from-muted/30 to-muted/10 backdrop-blur-sm p-6 opacity-60 relative overflow-hidden">
-              <div className="absolute inset-0 bg-background/40 backdrop-blur-[2px] z-10 flex flex-col items-center justify-center gap-3 p-4">
-                <Lock className="w-8 h-8 text-muted-foreground" />
-                <p className="text-sm font-semibold text-muted-foreground text-center">Currently Disabled</p>
-                <a 
-                  href="https://t.me/BINARYSUPPORT" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline"
-                >
-                  Contact Admin @BINARYSUPPORT
-                  <ExternalLink className="w-3 h-3" />
-                </a>
-              </div>
+            {/* Future Signals Card - ACTIVE */}
+            <div 
+              onClick={() => navigate("/future-signals")}
+              className="rounded-2xl border border-amber-500/30 bg-gradient-to-br from-amber-500/10 to-orange-500/5 backdrop-blur-sm p-6 cursor-pointer hover:border-amber-500/50 hover:shadow-[0_0_30px_-10px_rgba(245,158,11,0.4)] transition-all duration-300"
+            >
               <div className="space-y-4">
                 <div className="flex items-center gap-3">
-                  <div className="p-3 rounded-xl bg-muted/30">
-                    <Zap className="w-8 h-8 text-muted-foreground" />
+                  <div className="p-3 rounded-xl bg-amber-500/20">
+                    <Zap className="w-8 h-8 text-amber-400" />
                   </div>
                   <div>
-                    <h3 className="text-xl font-bold text-muted-foreground">FUTURE BOT</h3>
-                    <p className="text-sm text-muted-foreground">Future Signals</p>
+                    <h3 className="text-xl font-bold text-foreground">Future Signals</h3>
+                    <p className="text-sm text-amber-400">AI Signal Generator</p>
                   </div>
                 </div>
-                <p className="text-muted-foreground/60">
-                  Access the future signal generator for AI-powered trading predictions and market analysis.
+                <p className="text-muted-foreground">
+                  Generate precise future trading signals with deep multi-timeframe analysis and advanced price action.
                 </p>
-                <Button disabled className="w-full" variant="secondary">
+                <Button className="w-full bg-amber-500 hover:bg-amber-500/90 text-black font-semibold">
                   <Zap className="w-4 h-4 mr-2" />
-                  Disabled
+                  Open Generator
                 </Button>
               </div>
             </div>
