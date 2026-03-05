@@ -10,76 +10,6 @@ const FREE_DAILY_LIMIT = 3;
 const VIP_DAILY_LIMIT = 10;
 const ADMIN_DAILY_LIMIT = 999999;
 
-const ANALYSIS_SYSTEM_PROMPT = `You are a professional binary options chart analyst. You analyze candlestick data and provide trading signals.
-
-## CORE RULES
-- Prediction MUST be 100% based on the data provided
-- NEVER guess or make random signals
-- If analysis shows 50/50 probability → NEUTRAL (NO TRADE)
-- Only give CALL/PUT when clear directional bias exists (60%+ probability)
-
-## CRITICAL: TREND IS NOT A BLOCKER
-- A SIDEWAYS trend does NOT mean NEUTRAL signal
-- Signals are based on PRICE ACTION, not trend direction alone
-- Even in sideways markets, if price action patterns, S/R bounces, and indicators align → give CALL or PUT
-- Trend is just ONE factor in scoring, NOT a requirement
-- Do NOT avoid giving signals just because trend is sideways or unclear
-
-## SIGNAL THRESHOLDS
-- Below 60% → MUST be NEUTRAL
-- 60-65% → Moderate confidence
-- 66-75% → Good confidence
-- 76-85% → High confidence
-- 86%+ → Very high confidence
-
-## 6-STEP ANALYSIS METHOD
-
-Step 1: Full Candle Analysis - Count green vs red candles, identify momentum, reversals, S/R levels. Note: trend direction is observed but does NOT block signals.
-
-Step 2: Candlestick Pattern Detection
-BULLISH: Hammer, Bullish Engulfing, Morning Star, Three White Soldiers, Inverted Hammer, Piercing Line
-BEARISH: Shooting Star, Bearish Engulfing, Evening Star, Three Black Crows, Hanging Man, Dark Cloud Cover
-INDECISION: Doji, Spinning Top, Inside Bar
-Note: Even in sideways markets, if clear bullish/bearish patterns form at S/R levels → signal is valid.
-
-Step 3: Technical Indicators
-- EMA(5) vs EMA(20): EMA5 > EMA20 = bullish, EMA5 < EMA20 = bearish
-- RSI(14): Below 30 = oversold (CALL), Above 70 = overbought (PUT), 40-60 = neutral
-- MACD: Line above Signal = bullish, below = bearish
-- Bollinger Bands: Price at Lower = bullish, Upper = bearish
-
-Step 4: Support & Resistance - Key levels, bounces, breaks, multiple touches = stronger. S/R bounces can generate signals even in sideways markets.
-
-Step 5: Momentum - Larger candles = strong, smaller = weakening
-
-Step 6: Confluence Scoring (out of 100):
-- Candlestick pattern strength: 25 pts (MOST IMPORTANT)
-- S/R reaction (bounce/break): 25 pts (MOST IMPORTANT)
-- EMA alignment: 15 pts
-- RSI levels: 15 pts
-- MACD signal: 10 pts
-- Trend direction: 10 pts (LOW weight - trend alone should NOT block signals)
-
-60%+ bullish = CALL | 60%+ bearish = PUT | Otherwise = NEUTRAL
-
-## RESPONSE FORMAT (strict JSON)
-{
-  "signal": "CALL" | "PUT" | "NEUTRAL",
-  "confidence": <number 0-100>,
-  "trend": "BULLISH" | "BEARISH" | "SIDEWAYS",
-  "patterns_detected": ["pattern1", "pattern2"],
-  "support_zone": "<price>",
-  "resistance_zone": "<price>",
-  "ema_status": "bullish" | "bearish" | "crossed",
-  "rsi_value": <number>,
-  "rsi_status": "oversold" | "overbought" | "neutral",
-  "macd_status": "bullish" | "bearish" | "weak",
-  "explanation": "<brief 2-3 sentence explanation of the signal reasoning>"
-}
-
-Return ONLY the JSON object, no markdown, no extra text.`;
-
-// Secure IP extraction
 const getClientIP = (req: Request): string => {
   const cfIP = req.headers.get("cf-connecting-ip");
   if (cfIP) {
@@ -94,12 +24,8 @@ const getClientIP = (req: Request): string => {
   return "unknown";
 };
 
-// Check user role from auth token
 const checkUserStatus = async (
-  supabaseUrl: string,
-  anonKey: string,
-  serviceRoleKey: string,
-  authHeader: string | null
+  supabaseUrl: string, anonKey: string, serviceRoleKey: string, authHeader: string | null
 ): Promise<{ isVip: boolean; isAdmin: boolean; userId: string | null }> => {
   if (!authHeader) return { isVip: false, isAdmin: false, userId: null };
   try {
@@ -108,7 +34,6 @@ const checkUserStatus = async (
     });
     const { data: { user }, error } = await supabase.auth.getUser();
     if (error || !user) return { isVip: false, isAdmin: false, userId: null };
-
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
     const { data: isVip } = await adminClient.rpc('is_vip', { _user_id: user.id });
     const { data: isAdmin } = await adminClient.rpc('has_role', { _user_id: user.id, _role: 'admin' });
@@ -118,8 +43,7 @@ const checkUserStatus = async (
   }
 };
 
-// Fetch with timeout and retry
-async function fetchWithRetry(url: string, maxRetries = 3, timeoutMs = 5000): Promise<Response> {
+async function fetchWithRetry(url: string, maxRetries = 3, timeoutMs = 8000): Promise<Response> {
   let lastError: Error | null = null;
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
@@ -136,6 +60,76 @@ async function fetchWithRetry(url: string, maxRetries = 3, timeoutMs = 5000): Pr
   }
   throw lastError || new Error("All fetch attempts failed");
 }
+
+const FUTURE_SIGNALS_PROMPT = `You are an elite binary options signals generator with deep expertise in technical analysis. You generate precise future trading signals based on comprehensive market analysis.
+
+## YOUR TASK
+Analyze the provided market data (600 candles across multiple timeframes) and generate trading signals for the NEXT 1 HOUR.
+
+## ANALYSIS METHODOLOGY (MUST FOLLOW ALL STEPS)
+
+### Step 1: Multi-Timeframe Analysis
+- Analyze 1-minute, 5-minute, 15-minute, and 30-minute patterns from the data
+- Identify the dominant trend on each timeframe
+- Look for timeframe confluence
+
+### Step 2: Deep Price Action Analysis
+- Identify ALL candlestick patterns (engulfing, hammer, doji, pin bars, etc.)
+- Detect market structure (higher highs, lower lows, ranges)
+- Find key swing points and order blocks
+
+### Step 3: Support & Resistance
+- Calculate pivot points (daily, weekly)
+- Identify key S/R levels from price clusters
+- Mark zones where price has reversed multiple times
+
+### Step 4: Technical Indicators
+- EMA(5), EMA(20), EMA(50) alignment and crossovers
+- RSI(14) for overbought/oversold conditions
+- MACD crossovers and histogram strength
+- Bollinger Bands for volatility and mean reversion
+- Stochastic for momentum confirmation
+
+### Step 5: Advanced Pattern Recognition
+- Breakout detection with volume confirmation
+- Fake breakout identification
+- Reversal patterns (double top/bottom, head & shoulders)
+- Pullback opportunities to key levels
+- Buyer vs Seller pressure from candle body/wick ratios
+
+### Step 6: Signal Generation Rules
+- Only generate signals with 65%+ confluence score
+- Signals must align with at least 3 different analysis factors
+- Space signals evenly across the 1-hour period (no clustering)
+- Generate 5-12 high-quality signals
+- Each signal timing must be at exact minute marks
+- Time must be in Pakistani Time (UTC+5:00)
+
+## OUTPUT FORMAT
+Return a JSON object with this EXACT structure:
+{
+  "signals": [
+    {
+      "time": "HH:MM",
+      "direction": "CALL" | "PUT",
+      "confidence": <number 65-95>
+    }
+  ],
+  "analysis_summary": "<brief summary of market conditions and why these signals were generated>",
+  "market_bias": "BULLISH" | "BEARISH" | "MIXED",
+  "key_levels": {
+    "support": "<price>",
+    "resistance": "<price>"
+  }
+}
+
+CRITICAL RULES:
+- Times must be in PKT (UTC+5) format HH:MM
+- Times must be within the NEXT 1 hour from current time
+- Space signals at least 3-5 minutes apart
+- Generate between 5 and 12 signals
+- Each signal needs minimum 65% confidence
+- Return ONLY the JSON, no markdown fences, no extra text`;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -154,7 +148,7 @@ serve(async (req) => {
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 
-    // ===== USAGE LIMIT CHECK =====
+    // Usage limit check
     const clientIP = getClientIP(req);
     const authHeader = req.headers.get("authorization");
     const { isVip, isAdmin } = await checkUserStatus(SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, authHeader);
@@ -162,9 +156,8 @@ serve(async (req) => {
     const dailyLimit = isAdmin ? ADMIN_DAILY_LIMIT : isVip ? VIP_DAILY_LIMIT : FREE_DAILY_LIMIT;
     const today = new Date().toISOString().split("T")[0];
 
-    console.log(`Analyze request: IP=${clientIP.slice(0,10)}***, isVip=${isVip}, isAdmin=${isAdmin}, limit=${dailyLimit}`);
+    console.log(`Future signals: IP=${clientIP.slice(0,10)}***, isVip=${isVip}, isAdmin=${isAdmin}, limit=${dailyLimit}`);
 
-    // Atomically increment usage and check limit
     const adminClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     const { data: usageResult, error: usageError } = await adminClient.rpc('atomic_increment_ip_usage', {
       p_ip_address: clientIP,
@@ -183,27 +176,24 @@ serve(async (req) => {
     const remaining = usageResult?.[0]?.remaining ?? 0;
 
     if (!allowed) {
-      console.log(`Limit reached for IP ${clientIP.slice(0,10)}***`);
-      return new Response(JSON.stringify({ 
-        error: isVip 
-          ? `Daily VIP limit reached (${VIP_DAILY_LIMIT}/${VIP_DAILY_LIMIT}). Try again tomorrow.` 
-          : `Daily limit reached (${FREE_DAILY_LIMIT}/${FREE_DAILY_LIMIT}). Upgrade to VIP for 10 daily analyses.`,
-        limitReached: true,
-        remaining: 0,
-        dailyLimit,
+      return new Response(JSON.stringify({
+        error: isVip
+          ? `Daily VIP limit reached (${VIP_DAILY_LIMIT}/${VIP_DAILY_LIMIT}). Try again tomorrow.`
+          : `Daily limit reached (${FREE_DAILY_LIMIT}/${FREE_DAILY_LIMIT}). Upgrade to VIP for 10 daily signals.`,
+        limitReached: true, remaining: 0, dailyLimit,
       }), {
         status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // ===== FETCH MARKET DATA =====
-    const apiUrl = `https://ikszeynptbmwkaaldfad.supabase.co/functions/v1/quotex-proxy?symbol=${pair}&interval=1m&limit=100:qx_vzwz3wsu54chx8zmxpt0vp1yfk9gkxv0`;
-    
+    // Fetch market data - 600 candles for deep analysis
+    const apiUrl = `https://ikszeynptbmwkaaldfad.supabase.co/functions/v1/quotex-proxy?symbol=${pair}&interval=1m&limit=600:qx_vzwz3wsu54chx8zmxpt0vp1yfk9gkxv0`;
+
     let marketRes: Response;
     try {
-      marketRes = await fetchWithRetry(apiUrl, 3, 5000);
+      marketRes = await fetchWithRetry(apiUrl, 3, 8000);
     } catch {
-      return new Response(JSON.stringify({ error: "⚠️ MARKET DATA ERROR — Could not fetch market data. Please try again." }), {
+      return new Response(JSON.stringify({ error: "⚠️ Could not fetch market data. Try again." }), {
         status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -211,20 +201,33 @@ serve(async (req) => {
     const marketData = await marketRes.json();
     const candles = marketData.candles || marketData;
 
-    // ===== AI ANALYSIS =====
+    // Get current PKT time
+    const now = new Date();
+    const pktOffset = 5 * 60 * 60 * 1000;
+    const pktNow = new Date(now.getTime() + pktOffset);
+    const pktHour = pktNow.getUTCHours();
+    const pktMin = pktNow.getUTCMinutes();
+    const currentPKT = `${String(pktHour).padStart(2, '0')}:${String(pktMin).padStart(2, '0')}`;
+
+    // Calculate next hour end
+    const nextHourEnd = `${String((pktHour + 1) % 24).padStart(2, '0')}:${String(pktMin).padStart(2, '0')}`;
+
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
-      return new Response(JSON.stringify({ error: "AI API not configured" }), {
+      return new Response(JSON.stringify({ error: "AI not configured" }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const userPrompt = `Analyze this ${pair} 1-minute candlestick data (${Array.isArray(candles) ? candles.length : '?'} candles) and provide a trading signal.
+    const userPrompt = `Analyze this ${pair} data (${Array.isArray(candles) ? candles.length : '?'} 1-minute candles) and generate future trading signals.
 
-Market Data (JSON array of OHLCV candles):
+Current Pakistani Time (PKT): ${currentPKT}
+Generate signals from ${currentPKT} to ${nextHourEnd} (next 1 hour).
+
+Market Data (JSON array of OHLCV candles, most recent last):
 ${JSON.stringify(candles)}
 
-Analyze using the 6-step method and return the JSON response.`;
+Apply ALL analysis steps and generate 5-12 high-quality signals. Return the JSON response.`;
 
     const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -235,7 +238,7 @@ Analyze using the 6-step method and return the JSON response.`;
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
         messages: [
-          { role: "system", content: ANALYSIS_SYSTEM_PROMPT },
+          { role: "system", content: FUTURE_SIGNALS_PROMPT },
           { role: "user", content: userPrompt },
         ],
       }),
@@ -243,7 +246,7 @@ Analyze using the 6-step method and return the JSON response.`;
 
     if (!aiRes.ok) {
       if (aiRes.status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limit exceeded. Please try again in a moment." }), {
+        return new Response(JSON.stringify({ error: "Rate limit exceeded. Try again shortly." }), {
           status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
@@ -252,7 +255,7 @@ Analyze using the 6-step method and return the JSON response.`;
           status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      return new Response(JSON.stringify({ error: "⚠️ Analysis unavailable - AI API not responding." }), {
+      return new Response(JSON.stringify({ error: "AI not responding." }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -266,27 +269,30 @@ Analyze using the 6-step method and return the JSON response.`;
       });
     }
 
-    let analysisResult;
+    let result;
     try {
       const cleaned = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-      analysisResult = JSON.parse(cleaned);
+      result = JSON.parse(cleaned);
     } catch {
-      return new Response(JSON.stringify({ error: "Failed to parse AI analysis" }), {
+      console.error("Failed to parse AI response:", content.substring(0, 200));
+      return new Response(JSON.stringify({ error: "Failed to parse AI response" }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    return new Response(JSON.stringify({ 
-      success: true, 
-      analysis: analysisResult, 
+    return new Response(JSON.stringify({
+      success: true,
+      ...result,
       pair,
       remaining,
       dailyLimit,
+      generatedAt: currentPKT,
+      validUntil: nextHourEnd,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
-    console.error("analyze-chart error:", e);
+    console.error("generate-future-signals error:", e);
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
