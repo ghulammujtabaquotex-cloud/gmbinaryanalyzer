@@ -7,7 +7,6 @@ import {
   Settings,
   Bot,
   LogOut,
-  Lock,
   ExternalLink
 } from "lucide-react";
 import { useIPUsageTracking } from "@/hooks/useIPUsageTracking";
@@ -162,37 +161,27 @@ const Dashboard = () => {
               </div>
             </div>
 
-            {/* LIVE BOT Card - DISABLED */}
-            <div className="rounded-2xl border border-border/30 bg-gradient-to-br from-muted/30 to-muted/10 backdrop-blur-sm p-6 opacity-60 relative overflow-hidden">
-              <div className="absolute inset-0 bg-background/40 backdrop-blur-[2px] z-10 flex flex-col items-center justify-center gap-3 p-4">
-                <Lock className="w-8 h-8 text-muted-foreground" />
-                <p className="text-sm font-semibold text-muted-foreground text-center">Currently Disabled</p>
-                <a 
-                  href="https://t.me/BINARYSUPPORT" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline"
-                >
-                  Contact Admin @BINARYSUPPORT
-                  <ExternalLink className="w-3 h-3" />
-                </a>
-              </div>
+            {/* LIVE BOT Card - ACTIVE */}
+            <div 
+              onClick={() => navigate("/live-bot")}
+              className="rounded-2xl border border-indigo-500/30 bg-gradient-to-br from-indigo-500/10 to-violet-500/5 backdrop-blur-sm p-6 cursor-pointer hover:border-indigo-500/50 hover:shadow-[0_0_30px_-10px_rgba(99,102,241,0.4)] transition-all duration-300"
+            >
               <div className="space-y-4">
                 <div className="flex items-center gap-3">
-                  <div className="p-3 rounded-xl bg-muted/30">
-                    <Bot className="w-8 h-8 text-muted-foreground" />
+                  <div className="p-3 rounded-xl bg-indigo-500/20">
+                    <Bot className="w-8 h-8 text-indigo-400" />
                   </div>
                   <div>
-                    <h3 className="text-xl font-bold text-muted-foreground">LIVE BOT</h3>
-                    <p className="text-sm text-muted-foreground">Real-Time Trading</p>
+                    <h3 className="text-xl font-bold text-foreground">LIVE BOT</h3>
+                    <p className="text-sm text-indigo-400">Real-Time Scanner</p>
                   </div>
                 </div>
-                <p className="text-muted-foreground/60">
-                  Access our advanced live trading bot with real-time market analysis.
+                <p className="text-muted-foreground">
+                  Live candlestick chart with auto-scanning Twin Engine v8.2 — real-time signal detection.
                 </p>
-                <Button disabled className="w-full" variant="secondary">
+                <Button className="w-full bg-indigo-500 hover:bg-indigo-500/90 text-white font-semibold">
                   <Bot className="w-4 h-4 mr-2" />
-                  Disabled
+                  Open Live Bot
                 </Button>
               </div>
             </div>
