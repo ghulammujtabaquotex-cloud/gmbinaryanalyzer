@@ -94,7 +94,7 @@ const ChartAnalyzer = () => {
         refetch();
       }
     } catch (e) {
-      toast.error("⚠️ Analysis unavailable - AI API not responding.");
+      toast.error("⚠️ Analysis failed. Please try again.");
     } finally {
       setIsAnalyzing(false);
     }
@@ -140,7 +140,7 @@ const ChartAnalyzer = () => {
               <div>
                 <h1 className="text-lg font-bold text-foreground tracking-tight">GM Chart AI</h1>
                 <p className="text-[11px] text-muted-foreground font-medium tracking-wide uppercase">
-                  AI-Powered Analysis Engine
+                  Technical Analysis Engine
                 </p>
               </div>
             </div>
@@ -349,7 +349,7 @@ const ChartAnalyzer = () => {
             {/* Explanation */}
             <Card className="border-border/50 bg-card/80 backdrop-blur-sm">
               <CardContent className="p-5">
-                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">AI Analysis Summary</p>
+                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Analysis Summary</p>
                 <p className="text-sm text-foreground/80 leading-relaxed">{analysis.explanation}</p>
               </CardContent>
             </Card>

@@ -143,7 +143,7 @@ const FutureSignals = () => {
               <div>
                 <h1 className="text-lg font-bold text-foreground tracking-tight">Future Signals</h1>
                 <p className="text-[11px] text-muted-foreground font-medium tracking-wide uppercase">
-                  AI Signal Generator
+                  TA Signal Generator
                 </p>
               </div>
             </div>
