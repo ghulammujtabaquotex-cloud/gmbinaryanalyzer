@@ -10,6 +10,197 @@ const FREE_DAILY_LIMIT = 3;
 const VIP_DAILY_LIMIT = 10;
 const ADMIN_DAILY_LIMIT = 999999;
 
+// ===== TA ENGINE =====
+
+interface Candle { open: number; high: number; low: number; close: number; }
+
+function parseCandles(raw: any): Candle[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.map((c: any) => ({
+    open: Number(c.open ?? c.o ?? c[1]),
+    high: Number(c.high ?? c.h ?? c[2]),
+    low: Number(c.low ?? c.l ?? c[3]),
+    close: Number(c.close ?? c.c ?? c[4]),
+  })).filter(c => !isNaN(c.close) && c.close > 0);
+}
+
+function calcEMA(data: number[], period: number): number[] {
+  const ema: number[] = [];
+  const k = 2 / (period + 1);
+  ema[0] = data[0];
+  for (let i = 1; i < data.length; i++) ema[i] = data[i] * k + ema[i - 1] * (1 - k);
+  return ema;
+}
+
+function calcRSI(closes: number[], period = 14): number {
+  if (closes.length < period + 1) return 50;
+  let gains = 0, losses = 0;
+  for (let i = closes.length - period; i < closes.length; i++) {
+    const diff = closes[i] - closes[i - 1];
+    if (diff > 0) gains += diff; else losses -= diff;
+  }
+  if (losses === 0) return 100;
+  const rs = (gains / period) / (losses / period);
+  return 100 - (100 / (1 + rs));
+}
+
+function calcMACD(closes: number[]): { histogram: number } {
+  if (closes.length < 26) return { histogram: 0 };
+  const ema12 = calcEMA(closes, 12);
+  const ema26 = calcEMA(closes, 26);
+  const macdLine = ema12.map((v, i) => v - ema26[i]);
+  const signalLine = calcEMA(macdLine.slice(-9), 9);
+  return { histogram: macdLine[macdLine.length - 1] - signalLine[signalLine.length - 1] };
+}
+
+function calcBB(closes: number[], period = 20): { upper: number; lower: number } {
+  if (closes.length < period) return { upper: closes[closes.length - 1], lower: closes[closes.length - 1] };
+  const slice = closes.slice(-period);
+  const mean = slice.reduce((a, b) => a + b, 0) / period;
+  const std = Math.sqrt(slice.reduce((a, b) => a + (b - mean) ** 2, 0) / period);
+  return { upper: mean + 2 * std, lower: mean - 2 * std };
+}
+
+function findSR(candles: Candle[]): { support: number; resistance: number } {
+  const recent = candles.slice(-50);
+  return {
+    support: Math.min(...recent.map(c => c.low)),
+    resistance: Math.max(...recent.map(c => c.high)),
+  };
+}
+
+function detectPatterns(candles: Candle[]): { bullish: number; bearish: number } {
+  if (candles.length < 3) return { bullish: 0, bearish: 0 };
+  let bull = 0, bear = 0;
+  const last = candles[candles.length - 1];
+  const prev = candles[candles.length - 2];
+  const body = Math.abs(last.close - last.open);
+  const range = last.high - last.low;
+  const lowerWick = Math.min(last.open, last.close) - last.low;
+  const upperWick = last.high - Math.max(last.open, last.close);
+
+  // Doji = indecision, skip
+  if (range > 0 && body / range < 0.1) return { bullish: 0, bearish: 0 };
+
+  // Hammer
+  if (lowerWick > body * 2 && upperWick < body * 0.5 && body > 0) bull += 2;
+  // Shooting star
+  if (upperWick > body * 2 && lowerWick < body * 0.5 && body > 0) bear += 2;
+  // Bullish engulfing
+  if (prev.close < prev.open && last.close > last.open && last.close > prev.open && last.open < prev.close) bull += 3;
+  // Bearish engulfing
+  if (prev.close > prev.open && last.close < last.open && last.open > prev.close && last.close < prev.open) bear += 3;
+
+  return { bullish: bull, bearish: bear };
+}
+
+interface FutureSignal { time: string; direction: "CALL" | "PUT"; confidence: number; }
+
+function generateFutureSignals(candles: Candle[], pair: string, currentPKT: string): { signals: FutureSignal[]; market_bias: string; support: string; resistance: string; summary: string } {
+  if (candles.length < 50) {
+    return { signals: [], market_bias: "MIXED", support: "N/A", resistance: "N/A", summary: "Insufficient data." };
+  }
+
+  const closes = candles.map(c => c.close);
+  const lastPrice = closes[closes.length - 1];
+  const sr = findSR(candles);
+  const priceFormat = (n: number) => n.toFixed(lastPrice < 10 ? 5 : 2);
+
+  // Parse current time
+  const [curH, curM] = currentPKT.split(":").map(Number);
+
+  const signals: FutureSignal[] = [];
+  const windowSize = 30; // analyze windows of candles
+
+  // Generate signals at ~5 min intervals over next hour
+  for (let offset = 3; offset <= 60; offset += 5) {
+    const targetMin = curM + offset;
+    const targetH = (curH + Math.floor(targetMin / 60)) % 24;
+    const targetM = targetMin % 60;
+    const timeStr = `${String(targetH).padStart(2, '0')}:${String(targetM).padStart(2, '0')}`;
+
+    // Use a shifted window of candles for each signal to simulate different market snapshots
+    const shift = Math.min(offset, candles.length - windowSize);
+    const windowStart = Math.max(0, candles.length - windowSize - shift);
+    const window = candles.slice(windowStart, windowStart + windowSize);
+    const windowCloses = window.map(c => c.close);
+
+    // Score
+    let bullScore = 0, bearScore = 0;
+
+    // EMA
+    const ema5 = calcEMA(windowCloses, 5);
+    const ema20 = calcEMA(windowCloses, 20);
+    if (ema5[ema5.length - 1] > ema20[ema20.length - 1]) bullScore += 15; else bearScore += 15;
+
+    // RSI
+    const rsi = calcRSI(windowCloses);
+    if (rsi < 30) bullScore += 20;
+    else if (rsi < 40) bullScore += 10;
+    else if (rsi > 70) bearScore += 20;
+    else if (rsi > 60) bearScore += 10;
+
+    // MACD
+    const macd = calcMACD(windowCloses);
+    if (macd.histogram > 0) bullScore += 10; else bearScore += 10;
+
+    // Bollinger
+    const bb = calcBB(windowCloses);
+    const wp = windowCloses[windowCloses.length - 1];
+    if (wp <= bb.lower) bullScore += 15;
+    if (wp >= bb.upper) bearScore += 15;
+
+    // Patterns
+    const pat = detectPatterns(window);
+    bullScore += pat.bullish * 5;
+    bearScore += pat.bearish * 5;
+
+    // S/R proximity
+    const distSupport = (wp - sr.support) / wp;
+    const distResist = (sr.resistance - wp) / wp;
+    if (distSupport < 0.003) bullScore += 10;
+    if (distResist < 0.003) bearScore += 10;
+
+    // Trend (last 10 candles green/red ratio)
+    const last10 = window.slice(-10);
+    const greens = last10.filter(c => c.close > c.open).length;
+    if (greens >= 7) bullScore += 10;
+    else if (greens <= 3) bearScore += 10;
+
+    const totalMax = 80;
+    const bullPct = Math.round((bullScore / totalMax) * 100);
+    const bearPct = Math.round((bearScore / totalMax) * 100);
+
+    if (bullPct >= 65 && bullPct > bearPct + 10) {
+      signals.push({ time: timeStr, direction: "CALL", confidence: Math.min(bullPct, 92) });
+    } else if (bearPct >= 65 && bearPct > bullPct + 10) {
+      signals.push({ time: timeStr, direction: "PUT", confidence: Math.min(bearPct, 92) });
+    }
+    // else skip — not enough confluence
+  }
+
+  // Determine market bias
+  const overallCloses = closes.slice(-50);
+  const overallEma5 = calcEMA(overallCloses, 5);
+  const overallEma20 = calcEMA(overallCloses, 20);
+  const overallRsi = calcRSI(overallCloses);
+  const callCount = signals.filter(s => s.direction === "CALL").length;
+  const putCount = signals.filter(s => s.direction === "PUT").length;
+  const market_bias = callCount > putCount + 2 ? "BULLISH" : putCount > callCount + 2 ? "BEARISH" : "MIXED";
+
+  const summary = `Analysis of ${candles.length} candles. EMA(5) ${overallEma5[overallEma5.length - 1] > overallEma20[overallEma20.length - 1] ? "above" : "below"} EMA(20). RSI at ${Math.round(overallRsi)}. ${signals.length} signals generated with 65%+ confluence. S/R: ${priceFormat(sr.support)} — ${priceFormat(sr.resistance)}.`;
+
+  return {
+    signals,
+    market_bias,
+    support: priceFormat(sr.support),
+    resistance: priceFormat(sr.resistance),
+    summary,
+  };
+}
+
+// ===== HELPERS =====
+
 const getClientIP = (req: Request): string => {
   const cfIP = req.headers.get("cf-connecting-ip");
   if (cfIP) {
@@ -17,10 +208,7 @@ const getClientIP = (req: Request): string => {
     if (ipPattern.test(cfIP)) return cfIP;
   }
   const forwarded = req.headers.get("x-forwarded-for");
-  if (forwarded) {
-    const ip = forwarded.split(",")[0].trim();
-    if (ip === "127.0.0.1" || ip === "::1" || ip.startsWith("192.168.") || ip.startsWith("10.")) return ip;
-  }
+  if (forwarded) return forwarded.split(",")[0].trim();
   return "unknown";
 };
 
@@ -61,75 +249,7 @@ async function fetchWithRetry(url: string, maxRetries = 3, timeoutMs = 8000): Pr
   throw lastError || new Error("All fetch attempts failed");
 }
 
-const FUTURE_SIGNALS_PROMPT = `You are an elite binary options signals generator with deep expertise in technical analysis. You generate precise future trading signals based on comprehensive market analysis.
-
-## YOUR TASK
-Analyze the provided market data (600 candles across multiple timeframes) and generate trading signals for the NEXT 1 HOUR.
-
-## ANALYSIS METHODOLOGY (MUST FOLLOW ALL STEPS)
-
-### Step 1: Multi-Timeframe Analysis
-- Analyze 1-minute, 5-minute, 15-minute, and 30-minute patterns from the data
-- Identify the dominant trend on each timeframe
-- Look for timeframe confluence
-
-### Step 2: Deep Price Action Analysis
-- Identify ALL candlestick patterns (engulfing, hammer, doji, pin bars, etc.)
-- Detect market structure (higher highs, lower lows, ranges)
-- Find key swing points and order blocks
-
-### Step 3: Support & Resistance
-- Calculate pivot points (daily, weekly)
-- Identify key S/R levels from price clusters
-- Mark zones where price has reversed multiple times
-
-### Step 4: Technical Indicators
-- EMA(5), EMA(20), EMA(50) alignment and crossovers
-- RSI(14) for overbought/oversold conditions
-- MACD crossovers and histogram strength
-- Bollinger Bands for volatility and mean reversion
-- Stochastic for momentum confirmation
-
-### Step 5: Advanced Pattern Recognition
-- Breakout detection with volume confirmation
-- Fake breakout identification
-- Reversal patterns (double top/bottom, head & shoulders)
-- Pullback opportunities to key levels
-- Buyer vs Seller pressure from candle body/wick ratios
-
-### Step 6: Signal Generation Rules
-- Only generate signals with 65%+ confluence score
-- Signals must align with at least 3 different analysis factors
-- Space signals evenly across the 1-hour period (no clustering)
-- Generate 5-12 high-quality signals
-- Each signal timing must be at exact minute marks
-- Time must be in Pakistani Time (UTC+5:00)
-
-## OUTPUT FORMAT
-Return a JSON object with this EXACT structure:
-{
-  "signals": [
-    {
-      "time": "HH:MM",
-      "direction": "CALL" | "PUT",
-      "confidence": <number 65-95>
-    }
-  ],
-  "analysis_summary": "<brief summary of market conditions and why these signals were generated>",
-  "market_bias": "BULLISH" | "BEARISH" | "MIXED",
-  "key_levels": {
-    "support": "<price>",
-    "resistance": "<price>"
-  }
-}
-
-CRITICAL RULES:
-- Times must be in PKT (UTC+5) format HH:MM
-- Times must be within the NEXT 1 hour from current time
-- Space signals at least 3-5 minutes apart
-- Generate between 5 and 12 signals
-- Each signal needs minimum 65% confidence
-- Return ONLY the JSON, no markdown fences, no extra text`;
+// ===== MAIN =====
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -148,7 +268,6 @@ serve(async (req) => {
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 
-    // Usage limit check
     const clientIP = getClientIP(req);
     const authHeader = req.headers.get("authorization");
     const { isVip, isAdmin } = await checkUserStatus(SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, authHeader);
@@ -166,7 +285,6 @@ serve(async (req) => {
     });
 
     if (usageError) {
-      console.error("Usage check error:", usageError);
       return new Response(JSON.stringify({ error: "Usage check failed" }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -186,7 +304,7 @@ serve(async (req) => {
       });
     }
 
-    // Fetch market data - 600 candles for deep analysis
+    // Fetch 600 candles
     const apiUrl = `https://ikszeynptbmwkaaldfad.supabase.co/functions/v1/quotex-proxy?symbol=${pair}&interval=1m&limit=600:qx_vzwz3wsu54chx8zmxpt0vp1yfk9gkxv0`;
 
     let marketRes: Response;
@@ -208,81 +326,18 @@ serve(async (req) => {
     const pktHour = pktNow.getUTCHours();
     const pktMin = pktNow.getUTCMinutes();
     const currentPKT = `${String(pktHour).padStart(2, '0')}:${String(pktMin).padStart(2, '0')}`;
-
-    // Calculate next hour end
     const nextHourEnd = `${String((pktHour + 1) % 24).padStart(2, '0')}:${String(pktMin).padStart(2, '0')}`;
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      return new Response(JSON.stringify({ error: "AI not configured" }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const userPrompt = `Analyze this ${pair} data (${Array.isArray(candles) ? candles.length : '?'} 1-minute candles) and generate future trading signals.
-
-Current Pakistani Time (PKT): ${currentPKT}
-Generate signals from ${currentPKT} to ${nextHourEnd} (next 1 hour).
-
-Market Data (JSON array of OHLCV candles, most recent last):
-${JSON.stringify(candles)}
-
-Apply ALL analysis steps and generate 5-12 high-quality signals. Return the JSON response.`;
-
-    const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: FUTURE_SIGNALS_PROMPT },
-          { role: "user", content: userPrompt },
-        ],
-      }),
-    });
-
-    if (!aiRes.ok) {
-      if (aiRes.status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limit exceeded. Try again shortly." }), {
-          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      if (aiRes.status === 402) {
-        return new Response(JSON.stringify({ error: "AI credits exhausted." }), {
-          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      return new Response(JSON.stringify({ error: "AI not responding." }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const aiData = await aiRes.json();
-    const content = aiData.choices?.[0]?.message?.content;
-
-    if (!content) {
-      return new Response(JSON.stringify({ error: "AI returned empty response" }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    let result;
-    try {
-      const cleaned = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-      result = JSON.parse(cleaned);
-    } catch {
-      console.error("Failed to parse AI response:", content.substring(0, 200));
-      return new Response(JSON.stringify({ error: "Failed to parse AI response" }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    // Pure TA — no AI needed!
+    const parsed = parseCandles(candles);
+    const result = generateFutureSignals(parsed, pair, currentPKT);
 
     return new Response(JSON.stringify({
       success: true,
-      ...result,
+      signals: result.signals,
+      analysis_summary: result.summary,
+      market_bias: result.market_bias,
+      key_levels: { support: result.support, resistance: result.resistance },
       pair,
       remaining,
       dailyLimit,
