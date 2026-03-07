@@ -30,7 +30,7 @@ import {
   BarChart3,
 } from "lucide-react";
 import { toast } from "sonner";
-import { createChart, IChartApi, ISeriesApi, CandlestickData, Time } from "lightweight-charts";
+import { createChart, IChartApi, ISeriesApi, CandlestickData, Time, CandlestickSeries } from "lightweight-charts";
 
 // ===== CONSTANTS =====
 
@@ -269,7 +269,7 @@ const LiveBot = () => {
       },
     });
 
-    const series = chart.addCandlestickSeries({
+    const series = chart.addSeries(CandlestickSeries, {
       upColor: "#22c55e",
       downColor: "#ef4444",
       borderUpColor: "#22c55e",

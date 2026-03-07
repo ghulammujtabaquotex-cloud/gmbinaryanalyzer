@@ -7,7 +7,6 @@ import {
   Settings,
   Bot,
   LogOut,
-  Lock,
   ExternalLink
 } from "lucide-react";
 import { useIPUsageTracking } from "@/hooks/useIPUsageTracking";
