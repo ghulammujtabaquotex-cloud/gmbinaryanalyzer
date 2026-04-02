@@ -326,55 +326,60 @@ function generateSignals(
       const combinedUp = (upProb * 0.7) + (hourUpProb * 0.3);
       const combinedDown = (downProb * 0.7) + (hourDownProb * 0.3);
       
-      if (combinedUp >= bestThreshold) {
-        // Check indicator confluence for CALL
+      // Score CALL potential
+      {
         let score = 0;
         
-        // RSI filter
-        if (currentRSI < 30) { score += 25; reasons.push("RSI oversold"); }
-        else if (currentRSI < 45) { score += 15; reasons.push("RSI favorable"); }
-        else if (currentRSI > 70) { score -= 20; } // Overbought, skip CALL
+        // Time probability (primary driver)
+        if (combinedUp >= bestThreshold) {
+          score += Math.round((combinedUp - 0.5) * 200);
+          reasons.push(`Time prob: ${(combinedUp * 100).toFixed(1)}%`);
+        }
+        
+        // RSI
+        if (currentRSI < 30) { score += 20; reasons.push("RSI oversold"); }
+        else if (currentRSI < 45) { score += 10; reasons.push("RSI favorable"); }
+        else if (currentRSI > 75) { score -= 15; }
         
         // EMA trend
-        if (trendUp) { score += 20; reasons.push("EMA50>EMA200 uptrend"); }
-        else { score -= 10; }
+        if (trendUp) { score += 15; reasons.push("Uptrend"); }
         
-        // S/R proximity
-        const distToSupport = (lastPrice - sr.support) / lastPrice;
-        if (distToSupport < 0.005) { score += 15; reasons.push("Near support"); }
+        // S/R
+        const distSup = (lastPrice - sr.support) / lastPrice;
+        if (distSup < 0.005) { score += 10; reasons.push("Near support"); }
         
-        // Bollinger Bands
-        if (lastPrice <= bb.lower[bb.lower.length - 1]) { score += 15; reasons.push("Below BB lower"); }
+        // Bollinger
+        if (lastPrice <= bb.lower[bb.lower.length - 1]) { score += 10; reasons.push("BB lower touch"); }
         
-        // Time probability bonus
-        score += Math.round((combinedUp - 0.5) * 100);
-        reasons.push(`Time prob: ${(combinedUp * 100).toFixed(1)}%`);
-        
-        if (score >= 40) {
+        if (score >= 20 && combinedUp >= 0.52) {
           direction = "CALL";
-          confidence = Math.min(Math.round(55 + score * 0.4), 92);
+          confidence = Math.min(Math.round(55 + score * 0.5), 92);
         }
-      } else if (combinedDown >= bestThreshold) {
+      }
+      
+      // Score PUT potential (only if no CALL)
+      if (!direction) {
         let score = 0;
         
-        if (currentRSI > 70) { score += 25; reasons.push("RSI overbought"); }
-        else if (currentRSI > 55) { score += 15; reasons.push("RSI favorable"); }
-        else if (currentRSI < 30) { score -= 20; }
+        if (combinedDown >= bestThreshold) {
+          score += Math.round((combinedDown - 0.5) * 200);
+          reasons.push(`Time prob: ${(combinedDown * 100).toFixed(1)}%`);
+        }
         
-        if (!trendUp) { score += 20; reasons.push("EMA50<EMA200 downtrend"); }
-        else { score -= 10; }
+        if (currentRSI > 70) { score += 20; reasons.push("RSI overbought"); }
+        else if (currentRSI > 55) { score += 10; reasons.push("RSI favorable"); }
+        else if (currentRSI < 25) { score -= 15; }
         
-        const distToResist = (sr.resistance - lastPrice) / lastPrice;
-        if (distToResist < 0.005) { score += 15; reasons.push("Near resistance"); }
+        if (!trendUp) { score += 15; reasons.push("Downtrend"); }
         
-        if (lastPrice >= bb.upper[bb.upper.length - 1]) { score += 15; reasons.push("Above BB upper"); }
+        const distRes = (sr.resistance - lastPrice) / lastPrice;
+        if (distRes < 0.005) { score += 10; reasons.push("Near resistance"); }
         
-        score += Math.round((combinedDown - 0.5) * 100);
-        reasons.push(`Time prob: ${(combinedDown * 100).toFixed(1)}%`);
+        if (lastPrice >= bb.upper[bb.upper.length - 1]) { score += 10; reasons.push("BB upper touch"); }
         
-        if (score >= 40) {
+        if (score >= 20 && combinedDown >= 0.52) {
           direction = "PUT";
-          confidence = Math.min(Math.round(55 + score * 0.4), 92);
+          confidence = Math.min(Math.round(55 + score * 0.5), 92);
         }
       }
       
