@@ -2,19 +2,11 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   ArrowLeft,
   Zap,
   Loader2,
-  Clock,
   Copy,
   Check,
   TrendingUp,
@@ -25,6 +17,9 @@ import {
   Activity,
   Trophy,
   AlertTriangle,
+  Layers,
+  Clock,
+  Crosshair,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useIPUsageTracking } from "@/hooks/useIPUsageTracking";
@@ -56,7 +51,7 @@ interface BacktestData {
   maxConsecutiveLosses: number;
 }
 
-interface Result {
+interface PairResult {
   signals: Signal[];
   analysis_summary: string;
   market_bias: string;
@@ -72,27 +67,28 @@ interface Result {
 
 const FutureSignals = () => {
   const navigate = useNavigate();
-  const [selectedPair, setSelectedPair] = useState("");
-  const [startTime, setStartTime] = useState("");
-  const [endTime, setEndTime] = useState("");
-  const [result, setResult] = useState<Result | null>(null);
+  const [selectedPairs, setSelectedPairs] = useState<string[]>([]);
+  const [results, setResults] = useState<PairResult[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [copiedAll, setCopiedAll] = useState(false);
-  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  const [currentPairIdx, setCurrentPairIdx] = useState(0);
+  const [copiedAll, setCopiedAll] = useState<string | null>(null);
+  const [copiedIndex, setCopiedIndex] = useState<string | null>(null);
+  const [expandedPair, setExpandedPair] = useState<string | null>(null);
   const { canAnalyze, remaining, dailyLimit, isVip, isAdmin, refetch } = useIPUsageTracking();
 
-  // Get current PKT time for defaults
-  const getPKTNow = () => {
-    const now = new Date();
-    const pkt = new Date(now.getTime() + 5 * 60 * 60 * 1000);
-    const h = pkt.getUTCHours();
-    const m = pkt.getUTCMinutes();
-    return { h, m };
+  const togglePair = (pair: string) => {
+    setSelectedPairs(prev =>
+      prev.includes(pair) ? prev.filter(p => p !== pair) : [...prev, pair]
+    );
+  };
+
+  const selectAll = () => {
+    setSelectedPairs(prev => prev.length === PAIRS.length ? [] : [...PAIRS]);
   };
 
   const handleGenerate = async () => {
-    if (!selectedPair) {
-      toast.error("Select a currency pair");
+    if (selectedPairs.length === 0) {
+      toast.error("Select at least one pair");
       return;
     }
     if (!canAnalyze) {
@@ -101,171 +97,178 @@ const FutureSignals = () => {
     }
 
     setIsGenerating(true);
-    setResult(null);
+    setResults([]);
+    const allResults: PairResult[] = [];
 
-    try {
-      const body: any = { pair: selectedPair };
-      if (startTime && endTime) {
-        body.startTime = startTime;
-        body.endTime = endTime;
-      }
+    for (let i = 0; i < selectedPairs.length; i++) {
+      const pair = selectedPairs[i];
+      setCurrentPairIdx(i);
 
-      const { data, error } = await supabase.functions.invoke("generate-future-signals", { body });
+      try {
+        const { data, error } = await supabase.functions.invoke("generate-future-signals", {
+          body: { pair },
+        });
 
-      if (error) {
-        toast.error(error.message || "Generation failed");
-        return;
+        if (error) {
+          toast.error(`${pair}: ${error.message || "Failed"}`);
+          continue;
+        }
+        if (data?.error) {
+          toast.error(`${pair}: ${data.error}`);
+          if (data.limitReached) { refetch(); break; }
+          continue;
+        }
+        if (data?.signals) {
+          allResults.push(data);
+        }
+      } catch {
+        toast.error(`${pair}: Generation failed`);
       }
-      if (data?.error) {
-        toast.error(data.error);
-        if (data.limitReached) refetch();
-        return;
-      }
-      if (data?.signals) {
-        setResult(data);
-        refetch();
-        toast.success(`${data.signals.length} signals generated!`);
-      }
-    } catch {
-      toast.error("⚠️ Signal generation failed. Try again.");
-    } finally {
-      setIsGenerating(false);
     }
+
+    setResults(allResults);
+    refetch();
+    if (allResults.length > 0) {
+      setExpandedPair(allResults[0].pair);
+      const totalSignals = allResults.reduce((s, r) => s + r.signals.length, 0);
+      toast.success(`${totalSignals} signals across ${allResults.length} pairs!`);
+    }
+    setIsGenerating(false);
   };
 
-  const formatSignalText = (s: Signal, pair: string) =>
-    `M1;${pair};${s.time};${s.direction}`;
+  const formatSignalText = (s: Signal, pair: string) => `M1;${pair};${s.time};${s.direction}`;
 
-  const copyAllSignals = () => {
-    if (!result) return;
+  const copyAllForPair = (result: PairResult) => {
     const text = result.signals.map(s => formatSignalText(s, result.pair)).join("\n");
     navigator.clipboard.writeText(text);
-    setCopiedAll(true);
-    toast.success("All signals copied!");
-    setTimeout(() => setCopiedAll(false), 2000);
+    setCopiedAll(result.pair);
+    toast.success(`${result.pair} signals copied!`);
+    setTimeout(() => setCopiedAll(null), 2000);
   };
 
-  const copySingleSignal = (i: number) => {
-    if (!result) return;
-    navigator.clipboard.writeText(formatSignalText(result.signals[i], result.pair));
-    setCopiedIndex(i);
+  const copyAllSignals = () => {
+    const text = results.flatMap(r => r.signals.map(s => formatSignalText(s, r.pair))).join("\n");
+    navigator.clipboard.writeText(text);
+    setCopiedAll("ALL");
+    toast.success("All signals copied!");
+    setTimeout(() => setCopiedAll(null), 2000);
+  };
+
+  const copySingle = (pair: string, i: number, signal: Signal) => {
+    navigator.clipboard.writeText(formatSignalText(signal, pair));
+    setCopiedIndex(`${pair}-${i}`);
     toast.success("Signal copied!");
     setTimeout(() => setCopiedIndex(null), 2000);
   };
 
-  const { h, m } = getPKTNow();
-  const defaultStart = `${String(h).padStart(2, '0')}:${String(m + 1 >= 60 ? 0 : m + 1).padStart(2, '0')}`;
-  const defaultEnd = `${String((h + 1) % 24).padStart(2, '0')}:${String(m + 1 >= 60 ? 0 : m + 1).padStart(2, '0')}`;
+  const totalSignals = results.reduce((s, r) => s + r.signals.length, 0);
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
-      <header className="border-b border-border/50 backdrop-blur-xl sticky top-0 z-50 bg-background/90">
+      <header className="border-b border-border/40 backdrop-blur-xl sticky top-0 z-50 bg-background/95">
         <div className="container mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard")} className="rounded-xl">
                 <ArrowLeft className="w-5 h-5" />
               </Button>
-              <div className="p-2 rounded-xl bg-gradient-to-br from-amber-500/20 to-orange-500/10 border border-amber-500/20">
-                <Zap className="w-5 h-5 text-amber-400" />
-              </div>
-              <div>
-                <h1 className="text-lg font-bold text-foreground">Future Signal Generator</h1>
-                <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
-                  Probability Engine • Backtested
-                </p>
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-gradient-to-br from-violet-500/20 to-fuchsia-500/10 border border-violet-500/20">
+                  <Crosshair className="w-5 h-5 text-violet-400" />
+                </div>
+                <div>
+                  <h1 className="text-lg font-bold text-foreground tracking-tight">Probability Engine</h1>
+                  <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-widest">
+                    Next 1H • Multi-Pair • Backtested
+                  </p>
+                </div>
               </div>
             </div>
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/20">
-              <BarChart3 className="w-3.5 h-3.5 text-amber-400" />
-              <span className="text-xs font-semibold text-amber-400">DATA-DRIVEN</span>
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-violet-500/10 border border-violet-500/20">
+              <Activity className="w-3 h-3 text-violet-400" />
+              <span className="text-[10px] font-bold text-violet-400 uppercase tracking-wider">
+                {isAdmin ? "ADMIN" : isVip ? "VIP" : "FREE"}
+              </span>
             </div>
           </div>
         </div>
       </header>
 
       <main className="container mx-auto px-4 py-5 max-w-2xl flex-1 space-y-4">
-        {/* Control Card */}
-        <Card className="border-border/50 bg-gradient-to-b from-card to-card/50 overflow-hidden">
-          <div className="h-1 w-full bg-gradient-to-r from-amber-500 via-orange-500/60 to-amber-500/20" />
-          <CardContent className="p-4 space-y-4">
-            {/* Pair */}
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Currency Pair</label>
-              <Select value={selectedPair} onValueChange={setSelectedPair}>
-                <SelectTrigger className="w-full h-11 text-sm font-semibold rounded-xl border-border/60 bg-background/60">
-                  <SelectValue placeholder="Select pair..." />
-                </SelectTrigger>
-                <SelectContent className="max-h-72">
-                  {PAIRS.map(p => (
-                    <SelectItem key={p} value={p} className="font-medium">{p}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+        {/* Pair Selection */}
+        <Card className="border-border/40 bg-card/80 overflow-hidden">
+          <div className="h-0.5 w-full bg-gradient-to-r from-violet-500 via-fuchsia-500 to-violet-500/20" />
+          <CardContent className="p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Layers className="w-4 h-4 text-violet-400" />
+                <span className="text-xs font-bold text-foreground uppercase tracking-wider">Select Pairs</span>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={selectAll}
+                className="text-[10px] h-7 px-2.5 text-violet-400 hover:text-violet-300 hover:bg-violet-500/10"
+              >
+                {selectedPairs.length === PAIRS.length ? "Deselect All" : "Select All"}
+              </Button>
             </div>
 
-            {/* Time Range */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Start Time (PKT)</label>
-                <Input
-                  type="time"
-                  value={startTime}
-                  onChange={e => setStartTime(e.target.value)}
-                  placeholder={defaultStart}
-                  className="h-11 rounded-xl bg-background/60 text-sm font-mono"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">End Time (PKT)</label>
-                <Input
-                  type="time"
-                  value={endTime}
-                  onChange={e => setEndTime(e.target.value)}
-                  placeholder={defaultEnd}
-                  className="h-11 rounded-xl bg-background/60 text-sm font-mono"
-                />
-              </div>
+            <div className="grid grid-cols-2 gap-2">
+              {PAIRS.map(pair => {
+                const selected = selectedPairs.includes(pair);
+                return (
+                  <button
+                    key={pair}
+                    onClick={() => togglePair(pair)}
+                    className={`flex items-center gap-2.5 p-2.5 rounded-xl border text-left transition-all duration-200 ${
+                      selected
+                        ? "border-violet-500/50 bg-violet-500/10 shadow-[0_0_12px_-4px_rgba(139,92,246,0.3)]"
+                        : "border-border/40 bg-background/40 hover:border-border/60 hover:bg-muted/20"
+                    }`}
+                  >
+                    <Checkbox checked={selected} className="pointer-events-none data-[state=checked]:bg-violet-500 data-[state=checked]:border-violet-500" />
+                    <span className={`text-xs font-semibold tracking-wide ${selected ? "text-violet-300" : "text-muted-foreground"}`}>
+                      {pair}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
-            <p className="text-[10px] text-muted-foreground">Leave empty for next 1 hour from now (PKT UTC+5)</p>
 
-            {/* Usage */}
-            <div className="flex items-center justify-between px-1">
-              <div className="flex items-center gap-2 text-sm">
-                <Clock className="w-3.5 h-3.5 text-muted-foreground" />
-                <span className="text-muted-foreground">
-                  {isAdmin ? (
-                    <span className="text-amber-400 font-semibold">👑 Admin — Unlimited</span>
-                  ) : isVip ? (
-                    <span className="text-amber-400 font-semibold">♛ VIP — {remaining}/{dailyLimit}</span>
-                  ) : (
-                    <>{remaining}/{dailyLimit} remaining</>
-                  )}
-                </span>
+            {/* Usage & Generate */}
+            <div className="flex items-center justify-between pt-1">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Clock className="w-3.5 h-3.5" />
+                {isAdmin ? (
+                  <span className="text-violet-400 font-semibold">👑 Unlimited</span>
+                ) : isVip ? (
+                  <span className="text-violet-400 font-semibold">♛ {remaining}/{dailyLimit}</span>
+                ) : (
+                  <span>{remaining}/{dailyLimit} left</span>
+                )}
               </div>
               <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
                 <Shield className="w-3 h-3" />
-                30K Candles
+                30K Candles / Pair
               </div>
             </div>
 
-            {/* Generate */}
             <Button
               onClick={handleGenerate}
-              disabled={isGenerating || !selectedPair || !canAnalyze}
-              size="lg"
-              className="w-full h-14 text-base font-bold rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-500/90 hover:to-orange-500/90 text-black shadow-[0_0_40px_-8px_rgba(245,158,11,0.5)] transition-all"
+              disabled={isGenerating || selectedPairs.length === 0 || !canAnalyze}
+              className="w-full h-12 text-sm font-bold rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white shadow-[0_0_30px_-6px_rgba(139,92,246,0.5)] transition-all disabled:opacity-40"
             >
               {isGenerating ? (
-                <div className="flex items-center gap-3">
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  <span>Analyzing 30K Candles...</span>
+                <div className="flex items-center gap-2.5">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Analyzing {selectedPairs[currentPairIdx]} ({currentPairIdx + 1}/{selectedPairs.length})...</span>
                 </div>
               ) : (
-                <div className="flex items-center gap-3">
-                  <Zap className="w-5 h-5" />
-                  <span>Generate Signals</span>
+                <div className="flex items-center gap-2.5">
+                  <Zap className="w-4 h-4" />
+                  <span>Generate {selectedPairs.length > 0 ? `(${selectedPairs.length} pair${selectedPairs.length > 1 ? "s" : ""})` : "Signals"}</span>
                 </div>
               )}
             </Button>
@@ -273,149 +276,170 @@ const FutureSignals = () => {
         </Card>
 
         {/* Results */}
-        {result && (
-          <div className="space-y-4 animate-in fade-in slide-in-from-bottom-6 duration-700">
-            {/* Backtest Card */}
-            <Card className="border-emerald-500/30 bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 overflow-hidden">
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <Trophy className="w-4 h-4 text-emerald-400" />
-                  <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider">Backtest Results (Out-of-Sample)</span>
-                </div>
-                <div className="grid grid-cols-4 gap-2">
-                  <div className="text-center p-2 rounded-lg bg-background/40">
-                    <p className="text-lg font-black text-emerald-400">{result.backtest.winRate}%</p>
-                    <p className="text-[9px] text-muted-foreground uppercase">Win Rate</p>
-                  </div>
-                  <div className="text-center p-2 rounded-lg bg-background/40">
-                    <p className="text-lg font-black text-foreground">{result.backtest.totalTrades}</p>
-                    <p className="text-[9px] text-muted-foreground uppercase">Trades</p>
-                  </div>
-                  <div className="text-center p-2 rounded-lg bg-background/40">
-                    <p className="text-lg font-black text-emerald-400">{result.backtest.wins}</p>
-                    <p className="text-[9px] text-muted-foreground uppercase">Wins</p>
-                  </div>
-                  <div className="text-center p-2 rounded-lg bg-background/40">
-                    <p className="text-lg font-black text-red-400">{result.backtest.losses}</p>
-                    <p className="text-[9px] text-muted-foreground uppercase">Losses</p>
-                  </div>
-                </div>
-                {result.backtest.maxConsecutiveLosses > 0 && (
-                  <div className="mt-2 flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                    <AlertTriangle className="w-3 h-3 text-amber-400" />
-                    Max consecutive losses: {result.backtest.maxConsecutiveLosses}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Market Analysis */}
-            <Card className="border-amber-500/30 bg-gradient-to-br from-amber-500/10 to-orange-500/5 overflow-hidden">
-              <CardContent className="p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">Market Bias</p>
-                    <span className={`text-xl font-black ${
-                      result.market_bias === "BULLISH" ? "text-emerald-400" :
-                      result.market_bias === "BEARISH" ? "text-red-400" : "text-amber-400"
-                    }`}>{result.market_bias}</span>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">{result.candlesAnalyzed.toLocaleString()} candles analyzed</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-[10px] text-muted-foreground uppercase">Time Range (PKT)</p>
-                    <p className="text-sm font-bold text-foreground">{result.generatedAt} — {result.validUntil}</p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="rounded-lg bg-emerald-500/5 border border-emerald-500/20 p-2.5">
-                    <p className="text-[9px] font-semibold text-emerald-400/70 uppercase flex items-center gap-1">
-                      <Target className="w-3 h-3" /> Support
-                    </p>
-                    <p className="text-sm font-bold text-emerald-400">{result.key_levels.support}</p>
-                  </div>
-                  <div className="rounded-lg bg-red-500/5 border border-red-500/20 p-2.5">
-                    <p className="text-[9px] font-semibold text-red-400/70 uppercase flex items-center gap-1">
-                      <Target className="w-3 h-3" /> Resistance
-                    </p>
-                    <p className="text-sm font-bold text-red-400">{result.key_levels.resistance}</p>
-                  </div>
-                </div>
-
-                <p className="text-xs text-foreground/70 leading-relaxed">{result.analysis_summary}</p>
-              </CardContent>
-            </Card>
-
-            {/* Copy All */}
-            {result.signals.length > 0 && (
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Activity className="w-4 h-4 text-amber-400" />
-                  <span className="text-sm font-bold text-foreground">{result.signals.length} Signals</span>
-                </div>
-                <Button onClick={copyAllSignals} variant="outline" size="sm" className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10">
-                  {copiedAll ? <Check className="w-4 h-4 mr-1.5" /> : <Copy className="w-4 h-4 mr-1.5" />}
-                  {copiedAll ? "Copied!" : "Copy All"}
-                </Button>
+        {results.length > 0 && (
+          <div className="space-y-3 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            {/* Summary Bar */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <BarChart3 className="w-4 h-4 text-violet-400" />
+                <span className="text-sm font-bold text-foreground">
+                  {totalSignals} Signals • {results.length} Pair{results.length > 1 ? "s" : ""}
+                </span>
               </div>
-            )}
+              {totalSignals > 0 && (
+                <Button onClick={copyAllSignals} variant="outline" size="sm" className="h-7 text-xs border-violet-500/30 text-violet-400 hover:bg-violet-500/10">
+                  {copiedAll === "ALL" ? <Check className="w-3.5 h-3.5 mr-1" /> : <Copy className="w-3.5 h-3.5 mr-1" />}
+                  {copiedAll === "ALL" ? "Copied!" : "Copy All"}
+                </Button>
+              )}
+            </div>
 
-            {/* Signals List */}
-            {result.signals.length > 0 ? (
-              <Card className="border-border/50 bg-card/80 overflow-hidden">
-                <div className="divide-y divide-border/30">
-                  {result.signals.map((signal, i) => (
-                    <div key={i} className="flex items-center justify-between p-3 hover:bg-muted/10 transition-colors group">
-                      <div className="flex items-center gap-3">
-                        <div className={`p-1.5 rounded-lg ${signal.direction === "CALL" ? "bg-emerald-500/15" : "bg-red-500/15"}`}>
-                          {signal.direction === "CALL" ? (
-                            <TrendingUp className="w-4 h-4 text-emerald-400" />
-                          ) : (
-                            <TrendingDown className="w-4 h-4 text-red-400" />
-                          )}
-                        </div>
-                        <div>
-                          <p className="text-sm font-mono font-bold text-foreground">
-                            M1;{result.pair};{signal.time};
-                            <span className={signal.direction === "CALL" ? "text-emerald-400" : "text-red-400"}>
-                              {signal.direction}
-                            </span>
-                          </p>
-                          <div className="flex items-center gap-2">
-                            <span className={`text-[10px] font-semibold ${
-                              signal.confidence >= 75 ? "text-emerald-400" :
-                              signal.confidence >= 65 ? "text-amber-400" : "text-muted-foreground"
-                            }`}>{signal.confidence}% confidence</span>
-                            <span className="text-[9px] text-muted-foreground truncate max-w-[180px]">{signal.reason}</span>
-                          </div>
+            {/* Per-Pair Results */}
+            {results.map((result) => {
+              const isExpanded = expandedPair === result.pair;
+              const biasColor = result.market_bias === "BULLISH" ? "text-emerald-400" : result.market_bias === "BEARISH" ? "text-red-400" : "text-amber-400";
+
+              return (
+                <Card key={result.pair} className="border-border/40 bg-card/80 overflow-hidden">
+                  {/* Pair Header - clickable */}
+                  <button
+                    onClick={() => setExpandedPair(isExpanded ? null : result.pair)}
+                    className="w-full p-3.5 flex items-center justify-between hover:bg-muted/10 transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-violet-500/15 to-fuchsia-500/10 flex items-center justify-center border border-violet-500/20">
+                        <Target className="w-4 h-4 text-violet-400" />
+                      </div>
+                      <div className="text-left">
+                        <p className="text-sm font-bold text-foreground">{result.pair}</p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className={`text-[10px] font-bold ${biasColor}`}>{result.market_bias}</span>
+                          <span className="text-[10px] text-muted-foreground">•</span>
+                          <span className="text-[10px] text-muted-foreground">{result.signals.length} signals</span>
+                          <span className="text-[10px] text-muted-foreground">•</span>
+                          <span className="text-[10px] text-muted-foreground">{result.generatedAt}–{result.validUntil}</span>
                         </div>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="opacity-0 group-hover:opacity-100 transition-opacity h-7 w-7"
-                        onClick={() => copySingleSignal(i)}
-                      >
-                        {copiedIndex === i ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3 text-muted-foreground" />}
-                      </Button>
                     </div>
-                  ))}
-                </div>
-              </Card>
-            ) : (
-              <Card className="border-border/50 bg-card/80">
-                <CardContent className="p-8 text-center">
-                  <AlertTriangle className="w-8 h-8 text-amber-400 mx-auto mb-2" />
-                  <p className="text-sm font-semibold text-foreground">No High-Probability Signals Found</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    The probability engine couldn't find signals meeting the confluence threshold. Try a different pair or time range.
-                  </p>
-                </CardContent>
-              </Card>
-            )}
+                    <div className="flex items-center gap-2">
+                      <div className="text-right mr-1">
+                        <p className="text-xs font-bold text-emerald-400">{result.backtest.winRate}%</p>
+                        <p className="text-[9px] text-muted-foreground">win rate</p>
+                      </div>
+                      <svg className={`w-4 h-4 text-muted-foreground transition-transform ${isExpanded ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
+                  </button>
 
-            <p className="text-center text-[9px] text-muted-foreground/60 px-4">
-              ⚠️ Signals based on statistical probability analysis. Past performance ≠ future results. Trade responsibly.
+                  {/* Expanded Content */}
+                  {isExpanded && (
+                    <div className="border-t border-border/30 animate-in fade-in slide-in-from-top-2 duration-300">
+                      {/* Stats Row */}
+                      <div className="grid grid-cols-4 gap-px bg-border/20 border-b border-border/30">
+                        {[
+                          { label: "Win Rate", value: `${result.backtest.winRate}%`, color: "text-emerald-400" },
+                          { label: "Trades", value: result.backtest.totalTrades, color: "text-foreground" },
+                          { label: "Wins", value: result.backtest.wins, color: "text-emerald-400" },
+                          { label: "Losses", value: result.backtest.losses, color: "text-red-400" },
+                        ].map(stat => (
+                          <div key={stat.label} className="bg-card p-2.5 text-center">
+                            <p className={`text-sm font-black ${stat.color}`}>{stat.value}</p>
+                            <p className="text-[8px] text-muted-foreground uppercase tracking-wider">{stat.label}</p>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* S/R + Info */}
+                      <div className="p-3 space-y-2 border-b border-border/30">
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="rounded-lg bg-emerald-500/5 border border-emerald-500/15 p-2">
+                            <p className="text-[8px] font-bold text-emerald-400/60 uppercase">Support</p>
+                            <p className="text-xs font-bold text-emerald-400">{result.key_levels.support}</p>
+                          </div>
+                          <div className="rounded-lg bg-red-500/5 border border-red-500/15 p-2">
+                            <p className="text-[8px] font-bold text-red-400/60 uppercase">Resistance</p>
+                            <p className="text-xs font-bold text-red-400">{result.key_levels.resistance}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                          <Trophy className="w-3 h-3 text-violet-400" />
+                          {result.candlesAnalyzed.toLocaleString()} candles analyzed
+                          {result.backtest.maxConsecutiveLosses > 0 && (
+                            <span className="ml-2 text-amber-400">
+                              <AlertTriangle className="w-3 h-3 inline mr-0.5" />
+                              Max consec. loss: {result.backtest.maxConsecutiveLosses}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Copy for this pair */}
+                      {result.signals.length > 0 && (
+                        <div className="px-3 py-2 flex items-center justify-between border-b border-border/30">
+                          <span className="text-[10px] font-semibold text-muted-foreground uppercase">{result.signals.length} Signals</span>
+                          <Button onClick={() => copyAllForPair(result)} variant="ghost" size="sm" className="h-6 text-[10px] text-violet-400 hover:bg-violet-500/10">
+                            {copiedAll === result.pair ? <Check className="w-3 h-3 mr-1" /> : <Copy className="w-3 h-3 mr-1" />}
+                            {copiedAll === result.pair ? "Copied!" : "Copy"}
+                          </Button>
+                        </div>
+                      )}
+
+                      {/* Signals List */}
+                      {result.signals.length > 0 ? (
+                        <div className="divide-y divide-border/20 max-h-80 overflow-y-auto">
+                          {result.signals.map((signal, i) => (
+                            <div key={i} className="flex items-center justify-between px-3 py-2 hover:bg-muted/5 transition-colors group">
+                              <div className="flex items-center gap-2.5">
+                                <div className={`w-7 h-7 rounded-md flex items-center justify-center ${signal.direction === "CALL" ? "bg-emerald-500/10" : "bg-red-500/10"}`}>
+                                  {signal.direction === "CALL" ? (
+                                    <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
+                                  ) : (
+                                    <TrendingDown className="w-3.5 h-3.5 text-red-400" />
+                                  )}
+                                </div>
+                                <div>
+                                  <p className="text-xs font-mono font-bold text-foreground">
+                                    M1;{result.pair};{signal.time};
+                                    <span className={signal.direction === "CALL" ? "text-emerald-400" : "text-red-400"}>
+                                      {signal.direction}
+                                    </span>
+                                  </p>
+                                  <div className="flex items-center gap-1.5">
+                                    <span className={`text-[9px] font-bold ${
+                                      signal.confidence >= 75 ? "text-emerald-400" :
+                                      signal.confidence >= 65 ? "text-amber-400" : "text-muted-foreground"
+                                    }`}>{signal.confidence}%</span>
+                                    <span className="text-[8px] text-muted-foreground truncate max-w-[160px]">{signal.reason}</span>
+                                  </div>
+                                </div>
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6"
+                                onClick={() => copySingle(result.pair, i, signal)}
+                              >
+                                {copiedIndex === `${result.pair}-${i}` ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3 text-muted-foreground" />}
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="p-6 text-center">
+                          <AlertTriangle className="w-6 h-6 text-amber-400 mx-auto mb-1.5" />
+                          <p className="text-xs font-semibold text-foreground">No signals found</p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">Below confluence threshold for this pair.</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </Card>
+              );
+            })}
+
+            <p className="text-center text-[9px] text-muted-foreground/50 px-4">
+              ⚠️ Statistical probability analysis. Past performance ≠ future results. Trade responsibly.
             </p>
           </div>
         )}
