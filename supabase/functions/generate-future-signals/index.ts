@@ -546,14 +546,14 @@ serve(async (req) => {
     }
 
     // Fetch candles from new API
-    const apiUrl = `https://mgqflouatyhxeqjackrq.supabase.co/functions/v1/get-candles?pair=${pair}&tf=M1&limit=30000`;
+    const apiUrl = `https://mgqflouatyhxeqjackrq.supabase.co/functions/v1/get-candles?pair=${pair}&tf=M1&limit=5000`;
     
     console.log(`Fetching candles from: ${apiUrl}`);
     
     let marketRes: Response;
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 25000);
+      const timeoutId = setTimeout(() => controller.abort(), 50000);
       marketRes = await fetch(apiUrl, { signal: controller.signal });
       clearTimeout(timeoutId);
       if (!marketRes.ok) throw new Error(`HTTP ${marketRes.status}`);
