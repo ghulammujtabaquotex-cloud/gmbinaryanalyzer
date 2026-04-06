@@ -1,13 +1,12 @@
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { 
-  BarChart3, 
   Zap, 
   Crown, 
   Settings,
   Bot,
   LogOut,
-  ExternalLink
+  BarChart3
 } from "lucide-react";
 import { useIPUsageTracking } from "@/hooks/useIPUsageTracking";
 import { useAuth } from "@/hooks/useAuth";
@@ -110,32 +109,7 @@ const Dashboard = () => {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-6 mt-8">
-            {/* Chart AI Analyzer Card - ACTIVE */}
-            <div 
-              onClick={() => navigate("/chart-analyzer")}
-              className="rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/10 to-primary/5 backdrop-blur-sm p-6 cursor-pointer hover:border-primary/50 hover:shadow-[0_0_30px_-10px_hsl(var(--primary)/0.4)] transition-all duration-300"
-            >
-              <div className="space-y-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-3 rounded-xl bg-primary/20">
-                    <BarChart3 className="w-8 h-8 text-primary" />
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-bold text-foreground">Chart AI Analyzer</h3>
-                    <p className="text-sm text-primary">AI-Powered Analysis</p>
-                  </div>
-                </div>
-                <p className="text-muted-foreground">
-                  Select any pair and get instant AI-powered chart analysis with signals, patterns, and technical indicators.
-                </p>
-                <Button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold">
-                  <BarChart3 className="w-4 h-4 mr-2" />
-                  Open Analyzer
-                </Button>
-              </div>
-            </div>
-
+          <div className="grid md:grid-cols-2 gap-6 mt-8">
             {/* Future Signals Card - ACTIVE */}
             <div 
               onClick={() => navigate("/future-signals")}
