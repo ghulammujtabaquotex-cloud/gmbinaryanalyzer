@@ -546,7 +546,7 @@ serve(async (req) => {
     }
 
     // Fetch candles from new API
-    const apiUrl = `https://mgqflouatyhxeqjackrq.supabase.co/functions/v1/get-candles?pair=${pair}&tf=M1&limit=30000`;
+    const apiUrl = `https://ikszeynptbmwkaaldfad.supabase.co/functions/v1/get-candles?pair=${pair}&timeframe=M1&limit=50000`;
     
     console.log(`Fetching candles from: ${apiUrl}`);
     
