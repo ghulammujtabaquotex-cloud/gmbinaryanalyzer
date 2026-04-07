@@ -458,10 +458,10 @@ function generateSignals(
     `Backtest: ${backtest.winRate.toFixed(1)}% win rate on ${backtest.totalTrades} trades (out-of-sample). ` +
     `RSI: ${currentRSI.toFixed(0)}, Trend: ${trendUp ? "UP" : "DOWN"}, ` +
     `S/R: ${priceFormat(sr.support)} — ${priceFormat(sr.resistance)}. ` +
-    `${signals.length} signals generated with indicator confluence.`;
+    `${finalSignals.length} signals generated (${signals.length - finalSignals.length} consecutive duplicates filtered).`;
   
   return {
-    signals,
+    signals: finalSignals,
     summary,
     backtest,
     support: priceFormat(sr.support),
