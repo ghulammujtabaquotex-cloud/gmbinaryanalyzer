@@ -415,9 +415,43 @@ function generateSignals(
     }
   }
   
+  // Filter consecutive (0-gap) signals: keep only highest confidence from each group
+  const filtered: Signal[] = [];
+  let group: Signal[] = [];
+  
+  const timeToMinutes = (t: string): number => {
+    const [h, m] = t.split(":").map(Number);
+    return h * 60 + m;
+  };
+  
+  for (let i = 0; i < signals.length; i++) {
+    if (group.length === 0) {
+      group.push(signals[i]);
+    } else {
+      const prevMin = timeToMinutes(group[group.length - 1].time);
+      const currMin = timeToMinutes(signals[i].time);
+      if (currMin - prevMin === 1) {
+        // Consecutive — add to group
+        group.push(signals[i]);
+      } else {
+        // Gap found — flush group: keep best confidence
+        const best = group.reduce((a, b) => a.confidence >= b.confidence ? a : b);
+        filtered.push(best);
+        group = [signals[i]];
+      }
+    }
+  }
+  // Flush last group
+  if (group.length > 0) {
+    const best = group.reduce((a, b) => a.confidence >= b.confidence ? a : b);
+    filtered.push(best);
+  }
+  
+  const finalSignals = filtered;
+  
   // Market bias
-  const callCount = signals.filter(s => s.direction === "CALL").length;
-  const putCount = signals.filter(s => s.direction === "PUT").length;
+  const callCount = finalSignals.filter(s => s.direction === "CALL").length;
+  const putCount = finalSignals.filter(s => s.direction === "PUT").length;
   const market_bias = callCount > putCount + 2 ? "BULLISH" : putCount > callCount + 2 ? "BEARISH" : "MIXED";
   
   const summary = `Analyzed ${candles.length} candles. Optimal time-probability threshold: ${(bestThreshold * 100).toFixed(0)}%. ` +
