@@ -23,6 +23,8 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useIPUsageTracking } from "@/hooks/useIPUsageTracking";
+import { usePublicAccess } from "@/hooks/usePublicAccess";
+import AccessGate from "@/components/AccessGate";
 import { toast } from "sonner";
 
 const PAIRS = [
@@ -75,6 +77,12 @@ const FutureSignals = () => {
   const [copiedIndex, setCopiedIndex] = useState<string | null>(null);
   const [expandedPair, setExpandedPair] = useState<string | null>(null);
   const { canAnalyze, remaining, dailyLimit, isVip, isAdmin, refetch } = useIPUsageTracking();
+  const { enabled: publicAccess, isLoading: accessLoading } = usePublicAccess();
+
+  // Gate: when public access is OFF, only VIP & Admin can use the tool
+  if (!accessLoading && !publicAccess && !isVip && !isAdmin) {
+    return <AccessGate toolName="Future Signals" />;
+  }
 
   const togglePair = (pair: string) => {
     setSelectedPairs(prev =>
