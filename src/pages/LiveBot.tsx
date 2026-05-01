@@ -31,6 +31,9 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { createChart, IChartApi, ISeriesApi, CandlestickData, Time, CandlestickSeries } from "lightweight-charts";
+import { usePublicAccess } from "@/hooks/usePublicAccess";
+import { useIPUsageTracking } from "@/hooks/useIPUsageTracking";
+import AccessGate from "@/components/AccessGate";
 
 // ===== CONSTANTS =====
 
@@ -205,6 +208,8 @@ const parseCandles = (raw: any): OHLC[] => {
 
 const LiveBot = () => {
   const navigate = useNavigate();
+  const { enabled: publicAccess, isLoading: accessLoading } = usePublicAccess();
+  const { isVip, isAdmin } = useIPUsageTracking();
   const [selectedPair, setSelectedPair] = useState("EURUSD-OTC");
   const [isRunning, setIsRunning] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<"disconnected" | "connecting" | "connected" | "error">("disconnected");
