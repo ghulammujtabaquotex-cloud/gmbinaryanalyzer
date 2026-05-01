@@ -509,6 +509,11 @@ const LiveBot = () => {
     return <WifiOff className="w-3.5 h-3.5 text-muted-foreground" />;
   };
 
+  // Gate: when public access is OFF, only VIP & Admin can use the tool
+  if (!accessLoading && !publicAccess && !isVip && !isAdmin) {
+    return <AccessGate toolName="Live Bot" />;
+  }
+
   return (
     <div className="h-[100dvh] flex flex-col bg-[#0a0a0f] text-foreground overflow-hidden">
       {/* Header */}
