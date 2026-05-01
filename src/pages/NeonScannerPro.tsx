@@ -31,7 +31,7 @@ const NeonScannerPro = () => {
   const { user, isLoading: authLoading } = useAuth();
   const { isAdmin } = useAdmin();
   const { isVip } = useIPUsageTracking();
-  const { publicAccess, loading: accessLoading } = usePublicAccess();
+  const { enabled: publicAccess, isLoading: accessLoading } = usePublicAccess();
 
   const [pairsInput, setPairsInput] = useState("");
   const [verificationMode, setVerificationMode] = useState<"off" | "ai" | "anti">("off");
