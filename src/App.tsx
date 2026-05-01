@@ -15,6 +15,7 @@ const LiveBot = lazy(() => import("./pages/LiveBot"));
 const SignalBot = lazy(() => import("./pages/SignalBot"));
 
 const FutureSignals = lazy(() => import("./pages/FutureSignals"));
+const NeonScannerPro = lazy(() => import("./pages/NeonScannerPro"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
