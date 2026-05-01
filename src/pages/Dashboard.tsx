@@ -160,6 +160,32 @@ const Dashboard = () => {
                 </Button>
               </div>
             </div>
+
+            {/* Neon Scanner Pro Card - ACTIVE */}
+            <div 
+              onClick={() => navigate("/neon-scanner")}
+              className="rounded-2xl border border-fuchsia-500/30 bg-gradient-to-br from-fuchsia-500/10 to-purple-500/5 backdrop-blur-sm p-6 cursor-pointer hover:border-fuchsia-500/50 hover:shadow-[0_0_30px_-10px_rgba(217,70,239,0.4)] transition-all duration-300 md:col-span-2"
+            >
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-3 rounded-xl bg-fuchsia-500/20">
+                    <Terminal className="w-8 h-8 text-fuchsia-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-foreground">Neon Scanner Pro</h3>
+                    <p className="text-sm text-fuchsia-400">Terminal-Style Live Scanner · GLM-5.1 AI</p>
+                  </div>
+                </div>
+                <p className="text-muted-foreground">
+                  Continuous 600-candle scanner with original strategy + AI verification (Normal/Anti). 
+                  Bring your own Telegram Bot Token & Chat ID for alerts.
+                </p>
+                <Button className="w-full bg-gradient-to-r from-fuchsia-500 to-purple-600 hover:opacity-90 text-white font-semibold">
+                  <Terminal className="w-4 h-4 mr-2" />
+                  Open Neon Scanner
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
       </main>
