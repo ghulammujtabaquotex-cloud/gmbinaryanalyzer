@@ -16,3 +16,6 @@ verify_jwt = false
 [functions.generate-future-signals]
 verify_jwt = false
 
+[functions.signal-checker]
+verify_jwt = false
+
