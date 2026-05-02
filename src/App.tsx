@@ -15,6 +15,7 @@ const LiveBot = lazy(() => import("./pages/LiveBot"));
 const SignalBot = lazy(() => import("./pages/SignalBot"));
 
 const FutureSignals = lazy(() => import("./pages/FutureSignals"));
+const SignalChecker = lazy(() => import("./pages/SignalChecker"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
@@ -36,6 +37,7 @@ const App = () => (
             <Route path="/signal-bot" element={<SignalBot />} />
             
             <Route path="/future-signals" element={<FutureSignals />} />
+            <Route path="/signal-checker" element={<SignalChecker />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
