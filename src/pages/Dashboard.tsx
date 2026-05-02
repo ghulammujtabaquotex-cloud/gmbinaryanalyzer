@@ -160,31 +160,6 @@ const Dashboard = () => {
               </div>
             </div>
 
-            {/* Signal Result Checker Card - ACTIVE */}
-            <div 
-              onClick={() => navigate("/signal-checker")}
-              className="rounded-2xl border border-emerald-500/30 bg-gradient-to-br from-emerald-500/10 to-teal-500/5 backdrop-blur-sm p-6 cursor-pointer hover:border-emerald-500/50 hover:shadow-[0_0_30px_-10px_rgba(16,185,129,0.4)] transition-all duration-300 md:col-span-2"
-            >
-              <div className="space-y-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-3 rounded-xl bg-emerald-500/20">
-                    <CheckCircle2 className="w-8 h-8 text-emerald-400" />
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-bold text-foreground">Signal Result Checker</h3>
-                    <p className="text-sm text-emerald-400">Verify Win / Loss / Gale · UTC+5</p>
-                  </div>
-                </div>
-                <p className="text-muted-foreground">
-                  Paste your signals and instantly verify results with WIN ✅, LOSS ❌, and Gale ✅¹ tagging — full UTC+5 timezone support.
-                </p>
-                <Button className="w-full bg-emerald-500 hover:bg-emerald-500/90 text-black font-semibold">
-                  <CheckCircle2 className="w-4 h-4 mr-2" />
-                  Open Result Checker
-                </Button>
-              </div>
-            </div>
-
           </div>
         </div>
       </main>
