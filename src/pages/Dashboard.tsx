@@ -6,8 +6,7 @@ import {
   Settings,
   Bot,
   LogOut,
-  BarChart3,
-  Terminal
+  BarChart3
 } from "lucide-react";
 import { useIPUsageTracking } from "@/hooks/useIPUsageTracking";
 import { useAuth } from "@/hooks/useAuth";
